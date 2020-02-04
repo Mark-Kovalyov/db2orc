@@ -7,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import java.sql.*;
 import java.util.Map;
 
-public class Main {
+public class Db2Orc {
 
     private static Map<String, TypeDescription> pgTypeDescMap = ImmutableMap.of(
             "varchar", TypeDescription.createString(),
@@ -28,9 +28,8 @@ public class Main {
     // Use case:
     // =========
     //
-    // $ java db2orc.jar "jdbc:postgresql://localhost:5432/maytondb" "mayton" "******" tables=EMP,DEBT
+    // $ java db2orc.jar "jdbc:postgresql://localhost:5432/db" "user" "******" tables=EMP,DEBT
     //
-    // $ java db2orc.jar "jdbc:sqlserver://localhost:\mtnsql;user=mayton;password=*****"
     //
     //                jdbc:sqlserver://[serverName[\instanceName][:portNumber]][;property=value[;property=value]]
     //
@@ -41,7 +40,6 @@ public class Main {
         String password = args[2];
         String query = "SELECT * FROM geoipcity";
         Connection connection = DriverManager.getConnection(url, user, password);
-        //Connection connection = DriverManager.getConnection("jdbc:postgresql://localhost:5432/maytondb", "mayton", "*******");
 
         DatabaseMetaData metadata = connection.getMetaData();
 
