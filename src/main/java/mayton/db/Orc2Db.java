@@ -34,7 +34,8 @@ public class Orc2Db {
         for(int i = 0;i<td.size();i++) {
             sql.append(name.get(i));
             sql.append(" ");
-            sql.append(td.get(i).getCategory());
+            String orcType = td.get(i).getCategory().getName();
+            sql.append(typeMapper.fromOrc(td.get(i)));
             if (i != td.size() - 1) {
                 sql.append(",\n");
             } else {

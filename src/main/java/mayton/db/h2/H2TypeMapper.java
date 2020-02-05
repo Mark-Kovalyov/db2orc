@@ -1,6 +1,7 @@
 package mayton.db.h2;
 
 import mayton.db.TypeMapper;
+import org.apache.orc.TypeDescription;
 
 /**
  * <pre>
@@ -36,13 +37,18 @@ import mayton.db.TypeMapper;
 public class H2TypeMapper extends TypeMapper {
 
     @Override
-    public String fromOrc(String orcType, Integer length, Integer precision) {
+    public String fromOrc(TypeDescription typeDescription) {
+        String orcType = typeDescription.getCategory().getName();
         if (orcType.equalsIgnoreCase("STRING")) {
-            return "VARCHAR";
+            int length = typeDescription.getMaxLength();
+            int precision = typeDescription.getPrecision();
+            return "VARCHAR(" + length +")";
         } else if (orcType.equalsIgnoreCase("DECIMAL")) {
             return "DECIMAL";
         } else if (orcType.equalsIgnoreCase("DOUBLE")) {
             return "DOUBLE";
+        } else if (orcType.equalsIgnoreCase("date")) {
+            return "DATE";
         } else {
             throw new RuntimeException("Unable to map " + orcType);
         }
