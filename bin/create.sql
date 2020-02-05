@@ -1,0 +1,38 @@
+create table t1(
+ f1 INT,
+ f2 BOOLEAN,
+ f3 TINYINT,
+ f4 SMALLINT,
+ f5 BIGINT,
+ f6 IDENTITY,
+ f7 DECIMAL
+ f8 DOUBLE,
+ f9 REAL
+);
+
+create table t2(
+ f10 TIME
+ f11 TIME WITH TIME ZONE,
+ f12 DATE,
+ f13 TIMESTAMP,
+ f14 TIMESTAMP WITH TIME ZONE
+);
+
+create table t3(
+ f15 BINARY,
+ f16 OTHER,
+ f17 VARCHAR(10),
+ f18 VARCHAR_IGNORECASE,
+ f19 CHAR(10),
+ f20 BLOB
+);
+
+create table t4(
+ f21 CLOB,
+ f22 UUID,
+ f23 ARRAY,
+ f24 ENUM,
+ f25 GEOMETRY,
+ f26 JSON,
+ f27 INTERVAL
+);
