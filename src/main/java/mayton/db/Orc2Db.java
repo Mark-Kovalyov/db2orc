@@ -1,5 +1,7 @@
 package mayton.db;
 
+import mayton.db.h2.H2TypeMapper;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.vector.*;
@@ -9,22 +11,39 @@ import org.apache.orc.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.FileInputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 public class Orc2Db {
 
     static Logger logger = LogManager.getLogger(Orc2Db.class);
 
-    public static String generateCreationScript(@NotNull TypeDescription schema) {
-        StringBuilder stringBuilder = new StringBuilder("create table(");
-        for(TypeDescription typeDescription : schema.getChildren()) {
-            logger.info("{} scale = {}, category = {}, precision = {}", typeDescription, typeDescription.getScale(), typeDescription.getCategory(), typeDescription.getPrecision());
-        }
-        for(String name : schema.getFieldNames()) {
-            logger.info("name = {}", name);
-        }
+    static TypeMapper typeMapper = new H2TypeMapper();
 
-        return stringBuilder.toString();
+    public List<Pair<String, String>> generate(TypeDescription schema) {
+        List<Pair<String, String>> list = new ArrayList<>();
+
+        return list;
+    }
+
+    public static String generateCreationScript(@NotNull TypeDescription schema) {
+        StringBuilder sql = new StringBuilder("create table(\n");
+        List<TypeDescription> td = schema.getChildren();
+        List<String> name = schema.getFieldNames();
+        for(int i = 0;i<td.size();i++) {
+            sql.append(name.get(i));
+            sql.append(" ");
+            sql.append(td.get(i).getCategory());
+            if (i != td.size() - 1) {
+                sql.append(",\n");
+            } else {
+                sql.append("\n");
+            }
+
+        }
+        sql.append(");\n\n");
+        return sql.toString();
     }
 
     public static void main(String[] args) throws Exception {
@@ -42,17 +61,16 @@ public class Orc2Db {
 
         TypeDescription schema = reader.getSchema();
 
-        generateCreationScript(schema);
+        logger.info("{}",generateCreationScript(schema));
 
         RecordReader rows = reader.rows();
         VectorizedRowBatch batch = reader.getSchema().createRowBatch();
         int batchCount = 0;
         while (rows.nextBatch(batch)) {
-            logger.info("# batch = {}, rows = {}, columCount = {}, partitionColumnCount = {}", batchCount++, batch.size,
+            logger.trace("# batch = {}, rows = {}, columCount = {}, partitionColumnCount = {}", batchCount++, batch.size,
                     batch.getDataColumnCount(),
                     batch.getPartitionColumnCount()
             );
-
             for (int r=0; r < batch.size; r++) {
                 logger.trace("# row {}", r);
             }
