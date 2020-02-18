@@ -31,7 +31,7 @@ public class Orc2Db {
         StringBuilder sql = new StringBuilder("create table(\n");
         List<TypeDescription> td = schema.getChildren();
         List<String> name = schema.getFieldNames();
-        for(int i = 0;i<td.size();i++) {
+        for (int i = 0; i < td.size(); i++) {
             sql.append(name.get(i));
             sql.append(" ");
             String orcType = td.get(i).getCategory().getName();
@@ -54,15 +54,14 @@ public class Orc2Db {
         properties.load(new FileInputStream("sensitive.properties"));
         logger.info("Start");
         org.apache.hadoop.conf.Configuration conf = new Configuration();
-        //conf.set("fs.s3a.endpoint", "s3://myS3");
 
         Reader reader = OrcFile.createReader(
-                new Path(properties.getProperty("file")),
+                new Path(String.valueOf(properties.getOrDefault("db2orc.inFile", "orc/sample-01.orc"))),
                 OrcFile.readerOptions(conf));
 
         TypeDescription schema = reader.getSchema();
 
-        logger.info("{}",generateCreationScript(schema));
+        logger.info("{}", generateCreationScript(schema));
 
         RecordReader rows = reader.rows();
         VectorizedRowBatch batch = reader.getSchema().createRowBatch();
@@ -72,7 +71,7 @@ public class Orc2Db {
                     batch.getDataColumnCount(),
                     batch.getPartitionColumnCount()
             );
-            for (int r=0; r < batch.size; r++) {
+            for (int r = 0; r < batch.size; r++) {
                 logger.trace("# row {}", r);
             }
         }
