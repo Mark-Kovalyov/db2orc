@@ -57,6 +57,8 @@ public class H2TypeMapper extends TypeMapper {
             return "DOUBLE";
         } else if (orcType.equalsIgnoreCase("DATE")) {
             return "DATE";
+        } else if (orcType.equalsIgnoreCase("BIGINT")) {
+            return "BIGINT";
         } else {
             throw new RuntimeException("Unable to map " + orcType);
         }
