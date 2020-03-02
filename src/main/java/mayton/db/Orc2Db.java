@@ -1,6 +1,5 @@
 package mayton.db;
 
-import mayton.db.h2.H2TypeMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
@@ -11,11 +10,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.orc.*;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
 import java.io.FileInputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,14 +19,6 @@ import java.util.Properties;
 public class Orc2Db {
 
     static Logger logger = LogManager.getLogger(Orc2Db.class);
-
-
-
-    public List<Pair<String, String>> generate(TypeDescription schema) {
-        List<Pair<String, String>> list = new ArrayList<>();
-
-        return list;
-    }
 
     public static String generateCreationScript(@NotNull TypeDescription schema, @NotNull Properties properties, @NotNull String tableName) throws ClassNotFoundException, IllegalAccessException, InvocationTargetException, InstantiationException {
         Class typeMapperClass = Class.forName(properties.getProperty("mapper"));
@@ -60,34 +47,49 @@ public class Orc2Db {
     public static void main(String[] args) throws Exception {
         System.setProperty("log4j1.compatibility", "true");
         System.setProperty("log4j.configuration", "log4j.properties");
-        // System.setProperty("illegal-access","warn");
-
         Properties properties = new Properties();
         properties.load(new FileInputStream("sensitive.properties"));
         logger.info("Start");
         org.apache.hadoop.conf.Configuration conf = new Configuration();
-
         Reader reader = OrcFile.createReader(
                 new Path(String.valueOf(properties.getOrDefault("db2orc.inFile", "orc/sample-01.orc"))),
                 OrcFile.readerOptions(conf));
 
         TypeDescription schema = reader.getSchema();
 
-        logger.info("{}", generateCreationScript(schema, properties, "tab00005"));
+        logger.info("{}", generateCreationScript(schema, properties, properties.getProperty("db2orc.rootTableName")));
 
         RecordReader rows = reader.rows();
         VectorizedRowBatch batch = reader.getSchema().createRowBatch();
         int batchCount = 0;
 
         while (rows.nextBatch(batch)) {
+
+            // Process batch
             logger.trace("# batch = {}, rows = {}, columCount = {}, partitionColumnCount = {}", batchCount++, batch.size,
                     batch.getDataColumnCount(),
                     batch.getPartitionColumnCount()
             );
-            int batchSize = batch.size;
+            int batchSize = batch.size; // 1024 rows in batch
+
+            logger.info("batchSize = {}", batchSize);
+
             // Transpose source data rows into 90 degrees destination tuples
-            for (int i = 0; i < batchSize; i++) {
-                ColumnVector currentColumnVector = batch.cols[i];
+            //ColumnVector[] columnVectors = new ColumnVector[batchSize];
+
+            for (int i = 0; i < batch.cols.length; i++) {
+                ColumnVector current = batch.cols[i];
+                if (current instanceof LongColumnVector) {
+                    logger.info("detected {} column as LongColumnVector", i);
+                } else if (current instanceof BytesColumnVector) {
+                    logger.info("detected {} column as BytesColumnVector", i);
+                } else if (current instanceof DoubleColumnVector) {
+                    logger.info("detected {} column as DoubleColumnVector", i);
+                } else if (current instanceof ListColumnVector) {
+                    logger.info("detected {} column as ListColumnVector", i);
+                } else {
+                    logger.warn("unable to detect {} column type {}", current.getClass());
+                }
             }
 
             //BytesColumnVector  ownershipIdByteVector   = (BytesColumnVector)  batch.cols[0];
@@ -111,6 +113,9 @@ public class Orc2Db {
                 }*/
             }
         }
+
+        logger.info("Processed batches : {}", batchCount);
+
         rows.close();
 
         reader.close();
