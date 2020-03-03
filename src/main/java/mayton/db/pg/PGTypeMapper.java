@@ -14,7 +14,7 @@ public class PGTypeMapper extends TypeMapper {
     static Logger logger = LogManager.getLogger(PGTypeMapper.class);
 
     @Override
-    public String fromOrc(TypeDescription typeDescription) {
+    public String fromOrc(@NotNull TypeDescription typeDescription) {
 
         String orcType = typeDescription.getCategory().getName();
         String res = "";

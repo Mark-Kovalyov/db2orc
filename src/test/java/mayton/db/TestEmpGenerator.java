@@ -8,6 +8,7 @@ import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.DecimalColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.DoubleColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.TimestampColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.orc.CompressionKind;
@@ -19,21 +20,25 @@ import org.apache.orc.Writer;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
+import java.util.Random;
 
 
-public class TestGenerator {
+public class TestEmpGenerator {
 
     public static void main(String[] args) throws IOException {
         TypeDescription schema = createSchema();
         Configuration conf = new Configuration();
         FileSystem fs = new Path(".").getFileSystem(conf);
-        Path testFilePath = new Path("src/test/sample.orc");
+        Path testFilePath = new Path("src/test/resources/test-emp.orc");
         fs.delete(testFilePath, false);
         int batchSize = 50000;
         try (Writer writer = OrcFile.createWriter(testFilePath, OrcFile.writerOptions(fs.getConf())
                 .setSchema(schema)
-                .compress(CompressionKind.ZLIB)
+                .compress(CompressionKind.NONE)
                 .stripeSize(128 * 1024 * 1024)
                 .bufferSize(256 * 1024)
                 .rowIndexStride(10000)
@@ -55,17 +60,23 @@ public class TestGenerator {
         }
     }
 
+    static Random      random = new Random();
+    static MathContext mathContext = new MathContext(2, RoundingMode.HALF_DOWN);
+
     private static void appendRow(VectorizedRowBatch batch, int row, int v) {
         int i = 0;
-        ((LongColumnVector)   batch.cols[i++]).vector[row] = v;
-        ((BytesColumnVector)  batch.cols[i++]).setVal(row, "King".getBytes(StandardCharsets.UTF_8));
-        ((BytesColumnVector)  batch.cols[i++]).setVal(row, "director".getBytes(StandardCharsets.UTF_8));
-        ((LongColumnVector)   batch.cols[i++]).vector[row] = v * 2;
-        // TODO: Fix for incorrect date "hiredate":"\u0000843-04-08"
-        ((LongColumnVector)   batch.cols[i++]).vector[row] = System.currentTimeMillis();
-        ((DecimalColumnVector) batch.cols[i++]).vector[row] = new HiveDecimalWritable("17.1");
-        ((DecimalColumnVector) batch.cols[i++]).vector[row] = new HiveDecimalWritable("31.3");
-        ((LongColumnVector)  batch.cols[i++]).vector[row] = v * 3;
+
+        ((LongColumnVector)      batch.cols[i++]).vector[row] = v;
+        ((BytesColumnVector)     batch.cols[i++]).setVal(row, "King".getBytes(StandardCharsets.UTF_8));
+        ((BytesColumnVector)     batch.cols[i++]).setVal(row, "director".getBytes(StandardCharsets.UTF_8));
+        ((LongColumnVector)      batch.cols[i++]).vector[row] = random.nextInt(20);
+
+        ((TimestampColumnVector) batch.cols[i++]).set(row, new Timestamp(System.currentTimeMillis()));
+        double sal = 3000.0 + 1000.0 * random.nextGaussian();
+        ((DecimalColumnVector)   batch.cols[i++]).vector[row] = new HiveDecimalWritable(new BigDecimal(sal).round(mathContext).toPlainString());
+        double comm = 1000.0 + 500.0 * random.nextGaussian();
+        ((DecimalColumnVector)   batch.cols[i++]).vector[row] = new HiveDecimalWritable(new BigDecimal(comm).toPlainString());
+        ((LongColumnVector)      batch.cols[i++]).vector[row] = random.nextInt(3);
     }
 
     private static TypeDescription createSchema() {
@@ -75,7 +86,7 @@ public class TestGenerator {
         td.addField("ename",    TypeDescription.createVarchar().withMaxLength(30));
         td.addField("job",      TypeDescription.createVarchar().withMaxLength(30));
         td.addField("mgr",      TypeDescription.createLong());
-        td.addField("hiredate", TypeDescription.createDate());
+        td.addField("hiredate", TypeDescription.createTimestamp());
         td.addField("sal",      TypeDescription.createDecimal()); // decimal(38,10)
         td.addField("comm",     TypeDescription.createDecimal());
         td.addField("depno",    TypeDescription.createLong());

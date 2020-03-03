@@ -1,6 +1,8 @@
 package mayton.db;
 
 import org.apache.orc.Reader;
+import org.apache.orc.TypeDescription;
+
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.function.Function;
@@ -21,6 +23,10 @@ public class OrcSchemaDbTransformer implements Function<Reader, Set<TableEntity>
         return instance;
     }
 
+
+    void deepDive(TypeDescription typeDescription, Set<TableEntity> tableEntities) {
+        //deepDive(typeDescription, tableEntities);
+    }
 
     @Override
     public Set<TableEntity> apply(Reader reader) {
