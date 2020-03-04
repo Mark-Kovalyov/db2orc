@@ -31,18 +31,13 @@ public class TestEmpGenerator {
 
     public static void main(String[] args) throws IOException {
         TypeDescription schema = createSchema();
+        String pathString = "src/test/resources/test-emp.orc";
+        Path pathObject = new Path(pathString);
         Configuration conf = new Configuration();
         FileSystem fs = new Path(".").getFileSystem(conf);
-        Path testFilePath = new Path("src/test/resources/test-emp.orc");
-        fs.delete(testFilePath, false);
+        fs.delete(pathObject, false);
         int batchSize = 50000;
-        try (Writer writer = OrcFile.createWriter(testFilePath, OrcFile.writerOptions(fs.getConf())
-                .setSchema(schema)
-                .compress(CompressionKind.NONE)
-                .stripeSize(128 * 1024 * 1024)
-                .bufferSize(256 * 1024)
-                .rowIndexStride(10000)
-                .version(OrcFile.Version.V_0_12))) {
+        try (Writer writer = WriterHelper.createWriter(fs, pathString, schema)) {
             VectorizedRowBatch batch = schema.createRowBatch(batchSize);
             int numRows = 200;
             int tail = 0;

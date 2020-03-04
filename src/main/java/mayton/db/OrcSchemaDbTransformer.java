@@ -2,6 +2,7 @@ package mayton.db;
 
 import org.apache.orc.Reader;
 import org.apache.orc.TypeDescription;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -10,6 +11,10 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class OrcSchemaDbTransformer implements Function<Reader, Set<TableEntity>> {
+
+    private static boolean isAtom(@NotNull TypeDescription typeDescription) {
+        return true;
+    }
 
     private static OrcSchemaDbTransformer instance = null;
 
