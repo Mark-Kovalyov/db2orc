@@ -20,8 +20,8 @@
 
     <Loggers>
         <Root level="trace">
-            <AppenderRef ref="Rolling1"   level="DEBUG"/>
-            <AppenderRef ref="STDOUT" level="INFO"/>
+            <AppenderRef ref="Rolling1"   level="INFO"/>
+            <AppenderRef ref="STDOUT"     level="INFO"/>
         </Root>
     </Loggers>
 

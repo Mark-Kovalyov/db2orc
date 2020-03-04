@@ -9,30 +9,7 @@ import java.util.Map;
 
 public class Db2Orc {
 
-    private static Map<String, TypeDescription> pgTypeDescMap = ImmutableMap.of(
-            "varchar", TypeDescription.createString(),
-            "float8",  TypeDescription.createDouble(),
-            "float",   TypeDescription.createDouble(),
-            "number",  TypeDescription.createInt()
-    );
 
-    @NotNull
-    public static TypeDescription toOrc(@NotNull String typeName, boolean nullable) {
-        if (pgTypeDescMap.containsKey(typeName)) {
-            return pgTypeDescMap.get(typeName);
-        } else {
-            throw new IllegalArgumentException("Unable to map " + typeName + " to ORC datatypes");
-        }
-    }
-
-    // Use case:
-    // =========
-    //
-    // $ java db2orc.jar "jdbc:postgresql://localhost:5432/db" "user" "******" tables=EMP,DEBT
-    //
-    //
-    //                jdbc:sqlserver://[serverName[\instanceName][:portNumber]][;property=value[;property=value]]
-    //
     public static void main(String[] args) throws SQLException {
 
         String url      = args[0];
@@ -53,7 +30,7 @@ public class Db2Orc {
             String typeName   = res.getString("TYPE_NAME");
             int nullAllowed   = res.getInt("NULLABLE");
             System.out.printf("%s , dataType = %d, typeName = %s, nullAllowred = %d\n", columnName, dataType, typeName, nullAllowed);
-            schema.addField(columnName, toOrc(typeName, nullAllowed == 1 ? true : false));
+
         }
 
         res.close();
