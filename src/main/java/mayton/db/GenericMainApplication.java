@@ -1,4 +1,9 @@
 package mayton.db;
 
-public class GenericMainApplication {
+import org.apache.commons.cli.Options;
+
+public abstract class GenericMainApplication {
+
+    abstract Options createOptions();
+
 }

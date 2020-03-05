@@ -1,5 +1,6 @@
 package mayton.db;
 
+import org.apache.commons.cli.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
@@ -11,16 +12,41 @@ import org.apache.orc.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-public class Orc2Db {
+public class Orc2Db extends GenericMainApplication {
+
+    private static final boolean DEVMODE = true;
+
+    static String logo =
+            "8888888b.  888       .d8888b.   .d88888b.                  \n" +
+                    "888  \"Y88b 888      d88P  Y88b d88P\" \"Y88b                 \n" +
+                    "888    888 888             888 888     888                 \n" +
+                    "888    888 88888b.       .d88P 888     888 888d888 .d8888b \n" +
+                    "888    888 888 \"88b  .od888P\"  888     888 888P\"  d88P\"    \n" +
+                    "888    888 888  888 d88P\"      888     888 888    888      \n" +
+                    "888  .d88P 888 d88P 888\"       Y88b. .d88P 888    Y88b.    \n" +
+                    "8888888P\"  88888P\"  888888888   \"Y88888P\"  888     \"Y8888P \n";
 
     static Logger logger = LogManager.getLogger(Orc2Db.class);
 
+    @Override
+    Options createOptions() {
+        return new Options()
+            .addOption("u", "url",      true, "JDBC url. (ex:jdbc:oracle:thin@localhost:1521/XE")
+            .addOption("l", "login",    true, "JDBC login")
+            .addOption("p", "password", true, "JDBC password")
+            .addOption("o", "orcfile",  true, "Orc file. (ex:big-data.orc)");
+    }
+
     public static String generateCreationScript(@NotNull TypeDescription schema, @NotNull Properties properties, @NotNull String tableName) throws ClassNotFoundException, IllegalAccessException, InvocationTargetException, InstantiationException {
+
+
         Class typeMapperClass = Class.forName(properties.getProperty("mapper"));
         TypeMapper typeMapper = (TypeMapper) typeMapperClass.getDeclaredConstructors()[0].newInstance(null);
         StringBuilder sql = new StringBuilder("\ncreate table ");
@@ -44,11 +70,40 @@ public class Orc2Db {
         return sql.toString();
     }
 
+    public void go(String[] args) throws IOException, ParseException {
+        String url = "";
+        String login = "";
+        String pwd = "";
+        String orcFile = "";
+        String rootTableName = "";
+        if (DEVMODE) {
+            Properties properties = new Properties();
+            properties.load(new FileInputStream("sensitive.properties"));
+            url = properties.getProperty("url");
+            orcFile = properties.getProperty("orcFile");
+            login = properties.getProperty("login");
+            pwd = properties.getProperty("pwd");
+        } else {
+            if (args.length == 0) {
+                System.out.println(logo);
+                System.out.println(createOptions());
+                return;
+            } else {
+                CommandLineParser parser = new DefaultParser();
+                Options options = createOptions();
+                CommandLine line = parser.parse(options, args);
+                url = line.getOptionValue("u");
+            }
+        }
+    }
+
     public static void main(String[] args) throws Exception {
+        new Orc2Db().go(args);
+    }
+
+    public static void m() throws IOException, ClassNotFoundException, InvocationTargetException, InstantiationException, IllegalAccessException {
         System.setProperty("log4j1.compatibility", "true");
         System.setProperty("log4j.configuration", "log4j.properties");
-        Properties properties = new Properties();
-        properties.load(new FileInputStream("sensitive.properties"));
         logger.info("Start");
         org.apache.hadoop.conf.Configuration conf = new Configuration();
         Reader reader = OrcFile.createReader(
