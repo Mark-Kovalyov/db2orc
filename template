@@ -4,11 +4,11 @@
 
   <modelVersion>4.0.0</modelVersion>
   <groupId>mayton.db</groupId>
-  <artifactId>artifactName</artifactId>
+  <artifactId>db2orc</artifactId>
   <version>1.1</version>
   <packaging>jar</packaging>
 
-  <name>Chess Notation Player</name>
+  <name>ORC-to-DB and DB-to-ORC utils</name>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

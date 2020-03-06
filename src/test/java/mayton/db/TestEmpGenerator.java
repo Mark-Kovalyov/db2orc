@@ -37,7 +37,7 @@ public class TestEmpGenerator {
         FileSystem fs = new Path(".").getFileSystem(conf);
         fs.delete(pathObject, false);
         int batchSize = 50000;
-        try (Writer writer = WriterHelper.createWriter(fs, pathString, schema)) {
+        try (Writer writer = OrcUtils.createWriter(fs, pathString, schema)) {
             VectorizedRowBatch batch = schema.createRowBatch(batchSize);
             int numRows = 200;
             int tail = 0;

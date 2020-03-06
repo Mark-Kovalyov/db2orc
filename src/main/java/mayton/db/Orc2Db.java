@@ -20,7 +20,7 @@ import static mayton.db.Utils.println;
 
 public class Orc2Db extends GenericMainApplication {
 
-    private static final boolean DEVMODE = false;
+    private static final boolean DEVMODE = true;
 
     static String logo = "\n" +
                     "8888888b.  888       .d8888b.   .d88888b.                  \n" +
@@ -41,7 +41,8 @@ public class Orc2Db extends GenericMainApplication {
             .addOption("l", "login",     true, "JDBC login")
             .addOption("p", "password",  true, "JDBC password")
             .addOption("o", "orcfile",   true, "Orc file. (ex:big-data.orc)")
-            .addOption("r", "rootTable", true, "Root table name");
+            .addOption("r", "rootTable", true, "Root table name")
+            .addOption("m", "typeMapper",true, "Orc-to-database type mapper logic (default=mayton.db.pg.PGTypeMapper)"); // TODO: Depends on database type?
     }
 
     public static String generateCreationScript(@NotNull TypeDescription schema, @NotNull Properties properties, @NotNull String tableName) throws ClassNotFoundException, IllegalAccessException, InvocationTargetException, InstantiationException {
@@ -95,12 +96,13 @@ public class Orc2Db extends GenericMainApplication {
     }
 
     public static void main(String[] args) throws Exception {
+        System.setProperty("log4j1.compatibility", "true");
+        System.setProperty("log4j.configuration", "log4j.properties");
         new Orc2Db().go(args);
     }
 
     public void process(Properties properties) throws IOException, ClassNotFoundException, InvocationTargetException, InstantiationException, IllegalAccessException {
-        System.setProperty("log4j1.compatibility", "true");
-        System.setProperty("log4j.configuration", "log4j.properties");
+
         logger.info("Start");
         org.apache.hadoop.conf.Configuration conf = new Configuration();
         Reader reader = OrcFile.createReader(
