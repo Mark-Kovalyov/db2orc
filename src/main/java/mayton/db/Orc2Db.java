@@ -20,7 +20,7 @@ import static mayton.db.Utils.println;
 
 public class Orc2Db extends GenericMainApplication {
 
-    private static final boolean DEVMODE = true;
+    private static final boolean DEVMODE = false;
 
     static String logo = "\n" +
                     "8888888b.  888       .d8888b.   .d88888b.                  \n" +
@@ -46,8 +46,6 @@ public class Orc2Db extends GenericMainApplication {
     }
 
     public static String generateCreationScript(@NotNull TypeDescription schema, @NotNull Properties properties, @NotNull String tableName) throws ClassNotFoundException, IllegalAccessException, InvocationTargetException, InstantiationException {
-
-
         Class typeMapperClass = Class.forName(properties.getProperty("mapper"));
         TypeMapper typeMapper = (TypeMapper) typeMapperClass.getDeclaredConstructors()[0].newInstance(null);
         StringBuilder sql = new StringBuilder("\ncreate table ");

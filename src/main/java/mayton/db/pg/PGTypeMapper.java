@@ -1,7 +1,6 @@
 package mayton.db.pg;
 
 import mayton.db.TypeMapper;
-import mayton.db.h2.H2TypeMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.orc.TypeDescription;
@@ -10,6 +9,10 @@ import org.jetbrains.annotations.Nullable;
 
 
 public class PGTypeMapper extends TypeMapper {
+
+    enum PGTypes {
+        STRING, DECIMAL, DOUBLE, DATE, BIGINT, TEXT
+    }
 
     static Logger logger = LogManager.getLogger(PGTypeMapper.class);
 
@@ -47,6 +50,6 @@ public class PGTypeMapper extends TypeMapper {
 
     @Override
     public @NotNull TypeDescription toOrc(@NotNull String databaseType, @Nullable Integer databaseLength, @Nullable Integer databasePrecision, boolean isNullable) {
-        return super.toOrc(databaseType, databaseLength, databasePrecision, isNullable);
+        return TypeDescription.createVarchar().withMaxLength(255);
     }
 }

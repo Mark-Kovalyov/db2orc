@@ -1,14 +1,13 @@
 package mayton.db;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.commons.cli.Options;
 import org.apache.orc.TypeDescription;
-import org.jetbrains.annotations.NotNull;
 
 import java.sql.*;
-import java.util.Map;
 
 public class Db2Orc extends GenericMainApplication {
+
+    private static final boolean DEVMODE = false;
 
     static String logo =
             "============================================================================================" +
@@ -23,13 +22,16 @@ public class Db2Orc extends GenericMainApplication {
 
     @Override
     Options createOptions() {
-        Options options = new Options();
-        return options;
+        return new Options()
+                .addOption("u", "url",       true, "JDBC url. (ex:jdbc:oracle:thin@localhost:1521/XE")
+                .addOption("l", "login",     true, "JDBC login")
+                .addOption("p", "password",  true, "JDBC password")
+                .addOption("o", "orcfile",   true, "Orc file. (ex:big-data.orc)")
+                .addOption("s", "selectexpr",true, "SELECT-expression")
+                .addOption("t", "tablename", true, "Table or View name (excludes select expression)");
     }
 
     public static void main(String[] args) throws SQLException {
-
-
 
         String url      = args[0];
         String user     = args[1];
@@ -49,7 +51,6 @@ public class Db2Orc extends GenericMainApplication {
             String typeName   = res.getString("TYPE_NAME");
             int nullAllowed   = res.getInt("NULLABLE");
             System.out.printf("%s , dataType = %d, typeName = %s, nullAllowred = %d\n", columnName, dataType, typeName, nullAllowed);
-
         }
 
         res.close();

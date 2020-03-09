@@ -2,15 +2,14 @@
 
 mkdir release
 
-sed "s/mainClassName/mayton.db.Db2Orc/g" template > pom.xml
+xml tr xsl/transform.xsl -s mainClassName="mayton.db.Db2Orc" template | tee pom.xml && \
+    mvn clean package && \
+    cp target/db2orc*.jar release/db2orc.jar
 
-mvn clean package 
 
-cp target/db2orc*.jar release/db2orc.jar
+xml tr xsl/transform.xsl -s mainClassName="mayton.db.Orc2Db" template | tee pom.xml && \
+    mvn clean package && \
+    cp target/db2orc*.jar release/orc2db.jar
 
-sed "s/mainClassName/mayton.db.Orc2Db/g" template > pom.xml
 
-mvn clean package 
-
-cp target/db2orc*.jar release/orc2db.jar
 
