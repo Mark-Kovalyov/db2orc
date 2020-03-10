@@ -1,6 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
   <modelVersion>4.0.0</modelVersion>
   <groupId>mayton.db</groupId>
@@ -8,7 +7,7 @@
   <version>1.1</version>
   <packaging>jar</packaging>
 
-  <name>ORC Utilities</name>
+  <name>ORC-to-DB and DB-to-ORC utils</name>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -94,6 +93,16 @@
               <goal>shade</goal>
             </goals>
             <configuration>
+                <!--filters>
+                    <filter>
+                        <artifact>*:*</artifact>
+                        <excludes>
+                            <exclude>org/apache/hadoop/**</exclude>
+                            <exclude>org/apache/curator/**</exclude>
+                            <exclude>org/apache/avro/**</exclude>
+                        </excludes>
+                    </filter>
+                </filters-->
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <manifestEntries>

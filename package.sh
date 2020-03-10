@@ -1,15 +1,8 @@
 #!/bin/bash -v
 
-mkdir release
+./package-db2orc.sh
 
-xml tr xsl/transform.xsl -s mainClassName="mayton.db.Db2Orc" template | tee pom.xml && \
-    mvn clean package && \
-    cp target/db2orc*.jar release/db2orc.jar
-
-
-xml tr xsl/transform.xsl -s mainClassName="mayton.db.Orc2Db" template | tee pom.xml && \
-    mvn clean package && \
-    cp target/db2orc*.jar release/orc2db.jar
+./package-orc2db.sh
 
 
 

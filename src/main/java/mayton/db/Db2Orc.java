@@ -1,13 +1,26 @@
 package mayton.db;
 
-import org.apache.commons.cli.Options;
+import mayton.db.pg.PGTypeMapper;
+import org.apache.commons.cli.*;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.orc.TypeDescription;
+import org.apache.orc.Writer;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.sql.*;
+import java.util.Properties;
 
 public class Db2Orc extends GenericMainApplication {
 
-    private static final boolean DEVMODE = false;
+    public static Logger logger = LogManager.getLogger(Db2Orc.class);
+
+    private static final boolean DEVMODE = true;
 
     static String logo =
             "============================================================================================" +
@@ -31,32 +44,82 @@ public class Db2Orc extends GenericMainApplication {
                 .addOption("t", "tablename", true, "Table or View name (excludes select expression)");
     }
 
-    public static void main(String[] args) throws SQLException {
+    public void process(Properties properties) throws SQLException, ClassNotFoundException, IOException {
+        Class.forName("org.postgresql.Driver");
 
-        String url      = args[0];
-        String user     = args[1];
-        String password = args[2];
-        String query = "SELECT * FROM geoipcity";
-        Connection connection = DriverManager.getConnection(url, user, password);
+        String url = properties.getProperty("url");
+
+        Connection connection = DriverManager.getConnection(
+                url,
+                properties.getProperty("user"),
+                properties.getProperty("password"));
 
         DatabaseMetaData metadata = connection.getMetaData();
 
-        ResultSet res = metadata.getColumns(null, null, "geoipcity", null);
+        ResultSet res = metadata.getColumns(null, null, properties.getProperty("tablename"), null);
 
         TypeDescription schema = TypeDescription.createStruct();
+
+        /*String query = "SELECT column_name, data_type, is_nullable, character_maximum_length\n" +
+                " FROM\n" +
+                "        information_schema.columns\n" +
+                " WHERE\n" +
+                "        table_schema = current_schema()\n" +
+                "        AND table_name = '" + tablename + "'\n" +
+                "        ORDER BY ordinal_position;";*/
+
+        TypeMapper typeMapper = new PGTypeMapper();
 
         while(res.next()) {
             String columnName = res.getString("COLUMN_NAME");
             int dataType      = res.getInt("DATA_TYPE");
             String typeName   = res.getString("TYPE_NAME");
             int nullAllowed   = res.getInt("NULLABLE");
-            System.out.printf("%s , dataType = %d, typeName = %s, nullAllowred = %d\n", columnName, dataType, typeName, nullAllowed);
+            logger.info("{} , dataType = {}, typeName = {}, nullAllowred = {}", columnName, dataType, typeName, nullAllowed);
+            // TODO: Add length, precission, nullable
+            TypeDescription typeDescription = typeMapper.toOrc(typeName, 30, 0, true);
+            logger.info("typeDescription = {}", typeDescription);
+            schema.addField(columnName, typeDescription);
         }
 
         res.close();
 
 
+        String pathString = properties.getProperty("orcfile");
+        Path pathObject = new Path(pathString);
+        Configuration conf = new Configuration();
+        FileSystem fs = new Path(".").getFileSystem(conf);
+        fs.delete(pathObject, false);
+        Writer writer = OrcUtils.createWriter(fs, pathString, schema);
+
+        writer.close();
+
         connection.close();
+    }
+
+    public void process(String[] args) throws SQLException, ParseException, IOException, ClassNotFoundException {
+
+        Properties properties = new Properties();
+        if (DEVMODE) {
+            properties.load(new FileInputStream("sensitive.properties"));
+        } else {
+            CommandLineParser parser = new DefaultParser();
+            Options options = createOptions();
+            CommandLine line = parser.parse(options, args);
+            String url       = line.getOptionValue("u");
+            String user      = line.getOptionValue("l");
+            String password  = line.getOptionValue("p");
+            String tablename = line.getOptionValue("t");
+        }
+        process(properties);
+
+
+    }
+
+    public static void main(String[] args) throws SQLException, ParseException, IOException, ClassNotFoundException {
+        System.setProperty("log4j1.compatibility", "true");
+        System.setProperty("log4j.configuration", "log4j.properties");
+        new Db2Orc().process(args);
     }
 
 

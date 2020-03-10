@@ -21,12 +21,12 @@ public class PGTypeMapper extends TypeMapper {
 
         String orcType = typeDescription.getCategory().getName();
         String res = "";
-        int length    = typeDescription.getMaxLength();
+        int length = typeDescription.getMaxLength();
         int precision = typeDescription.getPrecision();
-        int scale     = typeDescription.getScale();
+        int scale = typeDescription.getScale();
         boolean isPrimitive = typeDescription.getCategory().isPrimitive();
         if (orcType.equalsIgnoreCase("STRING")) {
-            res = "VARCHAR(" + length +")";
+            res = "VARCHAR(" + length + ")";
         } else if (orcType.equalsIgnoreCase("DECIMAL")) {
             res = "DECIMAL";
         } else if (orcType.equalsIgnoreCase("DOUBLE")) {
@@ -35,7 +35,7 @@ public class PGTypeMapper extends TypeMapper {
         } else if (orcType.equalsIgnoreCase("DATE")) {
             res = "DATE";
         } else if (orcType.equalsIgnoreCase("BIGINT")) {
-            res =  "BIGINT";
+            res = "BIGINT";
         } else if (orcType.equalsIgnoreCase("ARRAY")) {
             // TODO: Wtf? ListColumnVector
             logger.info("ARRAY attributes {}", typeDescription.getAttributeNames());
@@ -50,6 +50,19 @@ public class PGTypeMapper extends TypeMapper {
 
     @Override
     public @NotNull TypeDescription toOrc(@NotNull String databaseType, @Nullable Integer databaseLength, @Nullable Integer databasePrecision, boolean isNullable) {
-        return TypeDescription.createVarchar().withMaxLength(255);
+        if (databaseType.equals("varchar")) {
+            // TODO:
+            TypeDescription typeDesc = TypeDescription.createVarchar();
+            if (databaseLength != null) {
+                typeDesc.withMaxLength(databaseLength);
+            }
+            return typeDesc;
+        } else if (databaseType.equals("float8")) {
+            return TypeDescription.createDouble();
+        } else if (databaseType.equals("int4")) {
+            return TypeDescription.createInt();
+        } else {
+            throw new RuntimeException("Unable to map database type = " + databaseType + " to ORC");
+        }
     }
 }
