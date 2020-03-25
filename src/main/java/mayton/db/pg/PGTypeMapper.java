@@ -59,8 +59,12 @@ public class PGTypeMapper extends TypeMapper {
             return typeDesc;
         } else if (databaseType.equals("float8")) {
             return TypeDescription.createDouble();
-        } else if (databaseType.equals("int4")) {
+        } else if (databaseType.equals("int4") || databaseType.equals("numeric")) {
             return TypeDescription.createInt();
+        } else if (databaseType.equals("bpchar")) {
+            return TypeDescription.createString();
+        } else if (databaseType.equals("timestamptz")) {
+            return TypeDescription.createTimestamp();
         } else {
             throw new RuntimeException("Unable to map database type = " + databaseType + " to ORC");
         }

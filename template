@@ -94,14 +94,20 @@
               <goal>shade</goal>
             </goals>
             <configuration>
+              <minimizeJar>false</minimizeJar>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
                 <!--filters>
                     <filter>
-                        <artifact>*:*</artifact>
+                        <artifact>org.apache.hadoop:hadoop-hdfs:2.7.3</artifact>
                         <excludes>
-                            <exclude>org/apache/hadoop/**</exclude>
-                            <exclude>org/apache/curator/**</exclude>
-                            <exclude>org/apache/avro/**</exclude>
+                            <exclude>**</exclude>
                         </excludes>
+                    </filter>
+                    <filter>
+                        <artifact>org.apache.hadoop:hadoop-hdfs:3.2.1</artifact>
+                        <includes>
+                            <include>**</include>
+                        </includes>
                     </filter>
                 </filters-->
               <transformers>

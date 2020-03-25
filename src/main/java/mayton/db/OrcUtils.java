@@ -14,10 +14,9 @@ public class OrcUtils {
 
     private OrcUtils(){}
 
-    public static Writer createWriter(@NotNull FileSystem fs, @NotNull String path, @NotNull TypeDescription schema) throws IOException {
-
-        Path testFilePath = new Path(path);
-        return OrcFile.createWriter(testFilePath, OrcFile.writerOptions(fs.getConf())
+    public static Writer createWriter(@NotNull FileSystem fileSystem, @NotNull String destPath, @NotNull TypeDescription schema) throws IOException {
+        Path destHadoopPath = new Path(destPath);
+        return OrcFile.createWriter(destHadoopPath, OrcFile.writerOptions(fileSystem.getConf())
                 .setSchema(schema)
                 .compress(CompressionKind.NONE)
                 .stripeSize(128 * 1024 * 1024)
