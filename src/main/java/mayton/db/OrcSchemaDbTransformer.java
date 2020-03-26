@@ -10,6 +10,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+@Deprecated
 public class OrcSchemaDbTransformer implements Function<Reader, Set<TableEntity>> {
 
     private static boolean isAtom(@NotNull TypeDescription typeDescription) {
