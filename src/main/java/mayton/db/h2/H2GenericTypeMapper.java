@@ -1,6 +1,6 @@
 package mayton.db.h2;
 
-import mayton.db.TypeMapper;
+import mayton.db.GenericTypeMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.orc.TypeDescription;
@@ -38,12 +38,12 @@ import org.jetbrains.annotations.Nullable;
  * INTERVAL
  * </pre>
  */
-public class H2TypeMapper extends TypeMapper {
+public class H2GenericTypeMapper extends GenericTypeMapper {
 
-    static Logger logger = LogManager.getLogger(H2TypeMapper.class);
+    static Logger logger = LogManager.getLogger(H2GenericTypeMapper.class);
 
     @Override
-    public String fromOrc(TypeDescription typeDescription) {
+    public String fromOrc(@NotNull TypeDescription typeDescription) {
         logger.trace(":: typeDesc = {}", typeDescription.toJson());
         String orcType = typeDescription.getCategory().getName();
         if (orcType.equalsIgnoreCase("STRING")) {

@@ -1,26 +1,24 @@
 package mayton.db;
 
-import mayton.db.pg.PGTypeMapper;
+import mayton.db.pg.PGGenericType;
+import mayton.db.pg.PgTypes;
 import org.apache.commons.cli.*;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.vector.*;
-import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Properties;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class Db2Orc extends GenericMainApplication {
 
@@ -28,6 +26,7 @@ public class Db2Orc extends GenericMainApplication {
 
     private static final boolean DEVMODE = false;
 
+    @NotNull
     @Override
     String createLogo() {
         return "\n     888 888       .d8888b.                           \n" +
@@ -40,6 +39,7 @@ public class Db2Orc extends GenericMainApplication {
                 " \"Y88888 88888P\"  888888888   \"Y88P\"  888     \"Y8888P\n\n";
     }
 
+    @NotNull
     @Override
     Options createOptions() {
         return new Options()
@@ -50,27 +50,75 @@ public class Db2Orc extends GenericMainApplication {
                 .addOption("s", "selectexpr",true, "SELECT-expression (ex: SELECT * FROM EMP)")
                 .addOption("t", "tablename", true, "Table or View name")
                 .addOption("co", "orc.compression",  true, "Orc file compression := { NONE, ZLIB, SNAPPY, LZO, LZ4, ZSTD }")
-                .addOption("bf", "orc.bloomColumns", true, "Orc file bloom filter columns (comma-separated)");
+                .addOption("bc", "orc.bloomcolumns", true, "Orc file bloom filter columns (comma-separated)")
+                .addOption("bf", "orc.bloomfilterfpp", true, "False positive probability for bloom filter [0.75..0.99]")
+                .addOption("ri", "orc.rowindexstride", true, "Row index stride [0..1000], 0 - means no index will be.");
     }
+
+    private static byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
     private static void appendRow(@NotNull VectorizedRowBatch batch, int rowInBatch, @NotNull ResultSet resultSet) throws SQLException {
         ResultSetMetaData rsmd = resultSet.getMetaData();
         int columnCount = rsmd.getColumnCount();
         for (int i = 0; i < columnCount; i++) {
+            String columnClassName = rsmd.getColumnClassName(i + 1);
+            String columnTypeName = rsmd.getColumnTypeName(i + 1);
             Object sqlFieldValue = resultSet.getObject(i + 1);
-            Class<? extends Object> sqlType = sqlFieldValue.getClass();
-            logger.trace("column = {}, sqlType = {}, value = '{}'", i, sqlType, sqlFieldValue);
-            if (sqlType == String.class) {
-                ((BytesColumnVector) batch.cols[i]).setVal(rowInBatch, ((String) sqlFieldValue).getBytes(StandardCharsets.UTF_8));
-            } else if (sqlType == java.sql.Timestamp.class) {
-                ((TimestampColumnVector) batch.cols[i]).set(rowInBatch, (Timestamp) sqlFieldValue);
-            } else if (sqlType == java.math.BigDecimal.class) {
-                ((LongColumnVector) batch.cols[i]).vector[rowInBatch] = ((BigDecimal) sqlFieldValue).longValue();
-            // TODO: Get rid of Postgre-specific types
-            } else if (sqlType == org.postgresql.util.PGobject.class) {
-                ((BytesColumnVector) batch.cols[i]).setVal(rowInBatch, ("bson-value-is-here").getBytes(StandardCharsets.UTF_8));
+            if (sqlFieldValue != null) {
+                // TODO: Generic JDBC-Type-Based mapping
+                /*Class<? extends Object> jdbcSqlType = sqlFieldValue.getClass();
+                logger.trace("column = {}, sqlType = {}, value = '{}'", i, jdbcSqlType, sqlFieldValue);
+                if (jdbcSqlType == String.class) {
+                    ((BytesColumnVector) batch.cols[i]).setVal(rowInBatch, ((String) sqlFieldValue).getBytes(UTF_8));
+                } else if (jdbcSqlType == java.sql.Timestamp.class) {
+                    ((TimestampColumnVector) batch.cols[i]).set(rowInBatch, (Timestamp) sqlFieldValue);
+                } else if (jdbcSqlType == java.math.BigDecimal.class) {
+                    ((LongColumnVector) batch.cols[i]).vector[rowInBatch] = ((BigDecimal) sqlFieldValue).longValue();
+                    // TODO: Get rid of Postgre-specific types
+                } else if (jdbcSqlType == Integer.class) {
+                    ((LongColumnVector) batch.cols[i]).vector[rowInBatch] = (long) ((int) sqlFieldValue);
+                } else {
+                    throw new RuntimeException("Unable to append row for sqlType = " + jdbcSqlType +
+                            " columnClassName = " + columnClassName + " columnTypeName = " + columnTypeName +
+                            " during vectorized row batch generation, value = " + sqlFieldValue);
+                }*/
+
+                // TODO: PostgreSQL specific mapping
+                if (columnTypeName.equals(PgTypes.BPCHAR.name().toLowerCase()) ||
+                        columnTypeName.equals(PgTypes.VARCHAR.name().toLowerCase()) ||
+                        columnTypeName.equals(PgTypes.TEXT.name().toLowerCase())) {
+                    ((BytesColumnVector) batch.cols[i]).setVal(rowInBatch, ((String) sqlFieldValue).getBytes(UTF_8));
+                } else if (columnTypeName.equals(PgTypes.INT4.name().toLowerCase()) ||
+                        columnTypeName.equals(PgTypes.SERIAL.name().toLowerCase())) {
+                    ((LongColumnVector) batch.cols[i]).vector[rowInBatch] = ((int) sqlFieldValue);
+                } else if (columnTypeName.equals(PgTypes.NUMERIC.name().toLowerCase())) {
+                    ((LongColumnVector) batch.cols[i]).vector[rowInBatch] = ((BigDecimal) sqlFieldValue).longValue();
+                } else if (columnTypeName.equals(PgTypes.FLOAT8.name().toLowerCase())) {
+                    ((DoubleColumnVector) batch.cols[i]).vector[rowInBatch] = (double) sqlFieldValue;
+                } else if (columnTypeName.equals(PgTypes.TIMESTAMPTZ.name().toLowerCase())) {
+                    ((TimestampColumnVector) batch.cols[i]).set(rowInBatch, (Timestamp) sqlFieldValue);
+                } else if (columnTypeName.equals(PgTypes.JSONB.name().toLowerCase()) ||
+                        columnTypeName.equals(PgTypes.POINT.name().toLowerCase())) {
+                    // TODO: Stuped JSONB/POINT stub
+                    ((BytesColumnVector) batch.cols[i]).setVal(rowInBatch, "{}".getBytes(UTF_8));
+                } else {
+                    throw new RuntimeException("Unable to append row for columnClassName = " +
+                            columnClassName + " columnTypeName = " + columnTypeName +
+                            " during vectorized row batch generation, value = " + sqlFieldValue);
+                }
             } else {
-                throw new RuntimeException("Unable to append row for sqlType = " + sqlType);
+                // TODO: Stuped null replacement! Rework.
+                if (columnTypeName.equals(PgTypes.BPCHAR.name().toLowerCase()) ||
+                        columnTypeName.equals(PgTypes.VARCHAR.name().toLowerCase()) ||
+                        columnTypeName.equals(PgTypes.TEXT.name().toLowerCase())) {
+                    ((BytesColumnVector) batch.cols[i]).setVal(rowInBatch, EMPTY_BYTE_ARRAY);
+                } else if (columnTypeName.equals(PgTypes.INT4.name().toLowerCase())) {
+                    ((LongColumnVector) batch.cols[i]).vector[rowInBatch] = Integer.MIN_VALUE;
+                } else if (columnTypeName.equals(PgTypes.NUMERIC.name().toLowerCase())) {
+                    ((LongColumnVector) batch.cols[i]).vector[rowInBatch] = Long.MIN_VALUE;
+                } else if (columnTypeName.equals(PgTypes.FLOAT8.name().toLowerCase())) {
+                    ((DoubleColumnVector) batch.cols[i]).vector[rowInBatch] = Double.NaN;
+                }
             }
         }
     }
@@ -94,7 +142,7 @@ public class Db2Orc extends GenericMainApplication {
                 batch.reset();
             }
         }
-        if (batch.size >= batchSize) {
+        if (batch.size > 0) {
             writer.addRowBatch(batch);
             batches++;
             batch.reset();
@@ -121,27 +169,31 @@ public class Db2Orc extends GenericMainApplication {
         String tableName = (String) properties.getOrDefault("tablename", null);
         String selectExpr = (String) properties.getOrDefault("selectexpr", null);
 
-        ResultSet res = SQLUtils.getColumns(metadata, tableName);
+        ResultSet resultSetColumns = SQLUtils.getColumns(metadata, tableName);
+
+        ResultSetMetaData resultSetColumnsMetaData = resultSetColumns.getMetaData();
 
         TypeDescription schema = TypeDescription.createStruct();
 
         logger.info("[3] Process type mapper");
 
-        TypeMapper typeMapper = new PGTypeMapper();
+        GenericTypeMapper genericTypeMapper = new PGGenericType();
 
-        while(res.next()) {
-            String columnName = res.getString("COLUMN_NAME");
-            int dataType      = res.getInt("DATA_TYPE");
-            String typeName   = res.getString("TYPE_NAME");
-            int nullAllowed   = res.getInt("NULLABLE");
-            logger.info("{} , dataType = {}, typeName = {}, nullAllowred = {}", columnName, dataType, typeName, nullAllowed);
+        while(resultSetColumns.next()) {
+            String columnName = resultSetColumns.getString("COLUMN_NAME");
+            int dataType      = resultSetColumns.getInt("DATA_TYPE");
+            String typeName   = resultSetColumns.getString("TYPE_NAME");
+            int nullAllowed   = resultSetColumns.getInt("NULLABLE");
+            int columnSize    = resultSetColumns.getInt("COLUMN_SIZE");
+
+            logger.info("{} : dataType = {}, columnSize = {}, typeName = {}, nullAllowred = {}", columnName, dataType, columnSize, typeName, nullAllowed);
             // TODO: Pass length, precission, nullable
-            TypeDescription typeDescription = typeMapper.toOrc(typeName, 30, 0, true);
+            TypeDescription typeDescription = genericTypeMapper.toOrc(typeName, columnSize, 0, true);
             logger.info("typeDescription = {}", typeDescription);
             schema.addField(columnName, typeDescription);
         }
 
-        res.close();
+        resultSetColumns.close();
 
         String orcFilePath = properties.getProperty("orcfile");
         logger.info("[4] Export ORC file = {}", orcFilePath);
@@ -171,7 +223,7 @@ public class Db2Orc extends GenericMainApplication {
         logger.info("[7] Finish!");
     }
 
-    public void process(String[] args) throws SQLException, ParseException, IOException, ClassNotFoundException {
+    public void process(String[] args) throws SQLException, ParseException, IOException {
 
         Properties properties = new Properties();
         if (DEVMODE) {

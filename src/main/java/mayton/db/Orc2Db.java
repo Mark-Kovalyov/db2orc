@@ -16,8 +16,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Properties;
 
-import static mayton.db.Utils.println;
-
 public class Orc2Db extends GenericMainApplication {
 
     private static final boolean DEVMODE = false;
@@ -50,7 +48,7 @@ public class Orc2Db extends GenericMainApplication {
 
     public static String generateCreationScript(@NotNull TypeDescription schema, @NotNull Properties properties, @NotNull String tableName) throws ClassNotFoundException, IllegalAccessException, InvocationTargetException, InstantiationException {
         Class typeMapperClass = Class.forName(properties.getProperty("mapper"));
-        TypeMapper typeMapper = (TypeMapper) typeMapperClass.getDeclaredConstructors()[0].newInstance(null);
+        GenericTypeMapper genericTypeMapper = (GenericTypeMapper) typeMapperClass.getDeclaredConstructors()[0].newInstance(null);
         StringBuilder sql = new StringBuilder("\ncreate table ");
         sql.append(tableName);
         sql.append(" (\n");
@@ -60,7 +58,7 @@ public class Orc2Db extends GenericMainApplication {
             sql.append(StringUtils.replace(name.get(i).toLowerCase(), " ", "_"));
             sql.append(" ");
             String orcType = td.get(i).getCategory().getName();
-            sql.append(typeMapper.fromOrc(td.get(i)));
+            sql.append(genericTypeMapper.fromOrc(td.get(i)));
             if (i != td.size() - 1) {
                 sql.append(",\n");
             } else {
