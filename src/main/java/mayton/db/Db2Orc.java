@@ -28,15 +28,17 @@ public class Db2Orc extends GenericMainApplication {
 
     private static final boolean DEVMODE = false;
 
-    static String logo =
-          "\n     888 888       .d8888b.                           \n" +
-            "     888 888      d88P  Y88b                          \n" +
-            "     888 888             888                          \n" +
-            " .d88888 88888b.       .d88P  .d88b.  888d888 .d8888b \n" +
-            "d88\" 888 888 \"88b  .od888P\"  d88\"\"88b 888P\"  d88P\"    \n" +
-            "888  888 888  888 d88P\"      888  888 888    888      \n" +
-            "Y88b 888 888 d88P 888\"       Y88..88P 888    Y88b.    \n" +
-            " \"Y88888 88888P\"  888888888   \"Y88P\"  888     \"Y8888P\n\n";
+    @Override
+    String createLogo() {
+        return "\n     888 888       .d8888b.                           \n" +
+                "     888 888      d88P  Y88b                          \n" +
+                "     888 888             888                          \n" +
+                " .d88888 88888b.       .d88P  .d88b.  888d888 .d8888b \n" +
+                "d88\" 888 888 \"88b  .od888P\"  d88\"\"88b 888P\"  d88P\"    \n" +
+                "888  888 888  888 d88P\"      888  888 888    888      \n" +
+                "Y88b 888 888 d88P 888\"       Y88..88P 888    Y88b.    \n" +
+                " \"Y88888 88888P\"  888888888   \"Y88P\"  888     \"Y8888P\n\n";
+    }
 
     @Override
     Options createOptions() {
@@ -45,45 +47,66 @@ public class Db2Orc extends GenericMainApplication {
                 .addRequiredOption("l", "login",     true, "JDBC login")
                 .addRequiredOption("p", "password",  true, "JDBC password")
                 .addRequiredOption("o", "orcfile",   true, "Orc file. (ex:big-data.orc)")
-                .addOption("s", "selectexpr",true, "SELECT-expression")
-                .addOption("t", "tablename", true, "Table or View name (excludes select expression)")
+                .addOption("s", "selectexpr",true, "SELECT-expression (ex: SELECT * FROM EMP)")
+                .addOption("t", "tablename", true, "Table or View name")
                 .addOption("co", "orc.compression",  true, "Orc file compression := { NONE, ZLIB, SNAPPY, LZO, LZ4, ZSTD }")
                 .addOption("bf", "orc.bloomColumns", true, "Orc file bloom filter columns (comma-separated)");
     }
 
-    private static void appendRow(VectorizedRowBatch batch, int row, int v) {
-        // struct<book_ref:string,
-        //           book_date:timestamp,
-        //           total_amount:int>
-        // TODO: Map
-        int i = 0;
-        ((BytesColumnVector)     batch.cols[i++]).setVal(row, ("book_ref" + i).getBytes(StandardCharsets.UTF_8));
-        ((TimestampColumnVector) batch.cols[i++]).set(row, new Timestamp(System.currentTimeMillis()));
-        ((LongColumnVector)      batch.cols[i++]).vector[row] = v;
+    private static void appendRow(@NotNull VectorizedRowBatch batch, int rowInBatch, @NotNull ResultSet resultSet) throws SQLException {
+        ResultSetMetaData rsmd = resultSet.getMetaData();
+        int columnCount = rsmd.getColumnCount();
+        for (int i = 0; i < columnCount; i++) {
+            Object sqlFieldValue = resultSet.getObject(i + 1);
+            Class<? extends Object> sqlType = sqlFieldValue.getClass();
+            logger.trace("column = {}, sqlType = {}, value = '{}'", i, sqlType, sqlFieldValue);
+            if (sqlType == String.class) {
+                ((BytesColumnVector) batch.cols[i]).setVal(rowInBatch, ((String) sqlFieldValue).getBytes(StandardCharsets.UTF_8));
+            } else if (sqlType == java.sql.Timestamp.class) {
+                ((TimestampColumnVector) batch.cols[i]).set(rowInBatch, (Timestamp) sqlFieldValue);
+            } else if (sqlType == java.math.BigDecimal.class) {
+                ((LongColumnVector) batch.cols[i]).vector[rowInBatch] = ((BigDecimal) sqlFieldValue).longValue();
+            // TODO: Get rid of Postgre-specific types
+            } else if (sqlType == org.postgresql.util.PGobject.class) {
+                ((BytesColumnVector) batch.cols[i]).setVal(rowInBatch, ("bson-value-is-here").getBytes(StandardCharsets.UTF_8));
+            } else {
+                throw new RuntimeException("Unable to append row for sqlType = " + sqlType);
+            }
+        }
     }
 
-    public void processWithWriter(@NotNull Writer writer, @NotNull TypeDescription schema, @NotNull Connection connection, @NotNull String query) throws IOException {
+    public void processWithWriter(@NotNull Writer writer, @NotNull TypeDescription schema, @NotNull Connection connection, @NotNull String query, int batchSize) throws IOException, SQLException {
         // TODO: Hardcode
-        int batchSize = 50000;
         VectorizedRowBatch batch = schema.createRowBatch(batchSize);
-        // TODO: Hardcode
-        int numRows = 200;
-        int tail = 0;
-        // TODO: Fetch from SQL but fake
-        for (int b = 0; b < numRows; tail = b++ % batchSize) {
-            appendRow(batch, batch.size++, b);
-            if (tail == 0) {
+        Statement statement = connection.createStatement();
+        logger.debug("execute query : {}", query);
+        statement.executeQuery(query);
+        ResultSet resultSet = statement.getResultSet();
+        long rows = 0;
+        long batches = 0;
+        while(resultSet.next()) {
+            rows++;
+            appendRow(batch, batch.size, resultSet);
+            batch.size++;
+            if (batch.size >= batchSize) {
                 writer.addRowBatch(batch);
+                batches++;
                 batch.reset();
             }
         }
-        if (tail != 0) {
+        if (batch.size >= batchSize) {
             writer.addRowBatch(batch);
+            batches++;
             batch.reset();
         }
+
+        resultSet.close();
+        statement.close();
+
+        logger.info("Successfully write {} rows and {} batches", rows, batches);
     }
 
-    public void process(@NotNull Properties properties) throws SQLException, ClassNotFoundException, IOException {
+    public void process(@NotNull Properties properties) throws SQLException, IOException {
         logger.info("[1] Start process");
 
         Connection connection = DriverManager.getConnection(
@@ -95,7 +118,8 @@ public class Db2Orc extends GenericMainApplication {
 
         DatabaseMetaData metadata = connection.getMetaData();
 
-        String tableName = properties.getProperty("tablename");
+        String tableName = (String) properties.getOrDefault("tablename", null);
+        String selectExpr = (String) properties.getOrDefault("selectexpr", null);
 
         ResultSet res = SQLUtils.getColumns(metadata, tableName);
 
@@ -111,7 +135,7 @@ public class Db2Orc extends GenericMainApplication {
             String typeName   = res.getString("TYPE_NAME");
             int nullAllowed   = res.getInt("NULLABLE");
             logger.info("{} , dataType = {}, typeName = {}, nullAllowred = {}", columnName, dataType, typeName, nullAllowed);
-            // TODO: Add length, precission, nullable
+            // TODO: Pass length, precission, nullable
             TypeDescription typeDescription = typeMapper.toOrc(typeName, 30, 0, true);
             logger.info("typeDescription = {}", typeDescription);
             schema.addField(columnName, typeDescription);
@@ -133,7 +157,14 @@ public class Db2Orc extends GenericMainApplication {
         currentDirPathFileSystem.delete(new Path(orcFilePath), false);
         logger.info("[6.1] create Orc-Writer with schema");
         Writer writer = OrcUtils.createWriter(currentDirPathFileSystem, orcFilePath, schema, properties);
-        processWithWriter(writer, schema, connection, tableName);
+        if (selectExpr != null) {
+            // TODO
+            throw new RuntimeException("Non implemented yet!");
+        } else if (tableName != null) {
+            processWithWriter(writer, schema, connection, "SELECT * FROM " + tableName, 50_000);
+        } else {
+            throw new IllegalArgumentException("Undefined table or SQL-expression for export!");
+        }
         writer.close();
         logger.info("[6.2] Orc-Writer closed");
         connection.close();
@@ -150,16 +181,20 @@ public class Db2Orc extends GenericMainApplication {
             Options options = createOptions();
             if (args.length == 0) {
                 HelpFormatter formatter = new HelpFormatter();
-                formatter.printHelp(logo, createOptions());
+                formatter.printHelp(createLogo(), createOptions());
                 return;
             } else {
                 CommandLine line = parser.parse(options, args);
-                properties.put("url", line.getOptionValue("u"));
-                properties.put("login", line.getOptionValue("l"));
+                // Mandatory
+                properties.put("url",      line.getOptionValue("u"));
+                properties.put("login",    line.getOptionValue("l"));
                 properties.put("password", line.getOptionValue("p"));
-                if (line.hasOption("t")) properties.put("tablename", line.getOptionValue("t"));
-                if (line.hasOption("s")) properties.put("selectexpr", line.getOptionValue("s"));
                 properties.put("orcfile", line.getOptionValue("o"));
+                // Optional
+                if (line.hasOption("t"))  properties.put("tablename", line.getOptionValue("t"));
+                if (line.hasOption("s"))  properties.put("selectexpr", line.getOptionValue("s"));
+                if (line.hasOption("co")) properties.put("orc.compression", line.getOptionValue("co"));
+                if (line.hasOption("bf")) properties.put("orc.bloomColumns", line.getOptionValue("bf"));
             }
         }
         process(properties);

@@ -22,17 +22,20 @@ public class Orc2Db extends GenericMainApplication {
 
     private static final boolean DEVMODE = false;
 
-    static String logo = "\n" +
-                    "8888888b.  888       .d8888b.   .d88888b.                  \n" +
-                    "888  \"Y88b 888      d88P  Y88b d88P\" \"Y88b                 \n" +
-                    "888    888 888             888 888     888                 \n" +
-                    "888    888 88888b.       .d88P 888     888 888d888 .d8888b \n" +
-                    "888    888 888 \"88b  .od888P\"  888     888 888P\"  d88P\"    \n" +
-                    "888    888 888  888 d88P\"      888     888 888    888      \n" +
-                    "888  .d88P 888 d88P 888\"       Y88b. .d88P 888    Y88b.    \n" +
-                    "8888888P\"  88888P\"  888888888   \"Y88888P\"  888     \"Y8888P \n\n";
-
     static Logger logger = LogManager.getLogger(Orc2Db.class);
+
+    @Override
+    String createLogo() {
+        return "\n" +
+                "8888888b.  888       .d8888b.   .d88888b.                  \n" +
+                "888  \"Y88b 888      d88P  Y88b d88P\" \"Y88b                 \n" +
+                "888    888 888             888 888     888                 \n" +
+                "888    888 88888b.       .d88P 888     888 888d888 .d8888b \n" +
+                "888    888 888 \"88b  .od888P\"  888     888 888P\"  d88P\"    \n" +
+                "888    888 888  888 d88P\"      888     888 888    888      \n" +
+                "888  .d88P 888 d88P 888\"       Y88b. .d88P 888    Y88b.    \n" +
+                "8888888P\"  88888P\"  888888888   \"Y88888P\"  888     \"Y8888P \n\n";
+    }
 
     @Override
     Options createOptions() {
@@ -81,7 +84,7 @@ public class Orc2Db extends GenericMainApplication {
         } else {
             if (args.length == 0) {
                 HelpFormatter formatter = new HelpFormatter();
-                formatter.printHelp(logo, createOptions() );
+                formatter.printHelp(createLogo(), createOptions() );
                 return;
             } else {
                 CommandLineParser parser = new DefaultParser();

@@ -50,8 +50,15 @@ public class PGTypeMapper extends TypeMapper {
 
     @Override
     public @NotNull TypeDescription toOrc(@NotNull String databaseType, @Nullable Integer databaseLength, @Nullable Integer databasePrecision, boolean isNullable) {
-        if (databaseType.equals("varchar")) {
-            // TODO:
+        if (databaseType.equals("jsonb")) {
+            // TODO: This is not a good idea to convert from json to Varchar. Should be discussed
+            TypeDescription typeDesc = TypeDescription.createVarchar();
+            return typeDesc;
+        } else if (databaseType.equals("text")) {
+            TypeDescription typeDesc = TypeDescription.createVarchar();
+            return typeDesc;
+        } else if (databaseType.equals("varchar")) {
+            // TODO: Investigate for maxLength limitations
             TypeDescription typeDesc = TypeDescription.createVarchar();
             if (databaseLength != null) {
                 typeDesc.withMaxLength(databaseLength);
