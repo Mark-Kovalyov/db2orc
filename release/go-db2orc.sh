@@ -1,12 +1,12 @@
-OD#!/bin/bash -v
+#!/bin/bash -v
 
-DEMO_DB=db1
-DEMO_USER=user1
-DEMO_PWD=pwd1
+DEMO_DB=demo
+DEMO_USER=mayton
+DEMO_PWD=cyberman
 
-MTNDB_DB=db1
-MTNDB_USER=user2
-MTNDB_PWD=pwd2
+MTNDB_DB=maytondb
+MTNDB_USER=mayton
+MTNDB_PWD=cyberman
 
 rm -f *crc
 rm -f *orc
@@ -46,6 +46,7 @@ do
   -t "$value" \
   -co SNAPPY \
   -ri 0 \
+  -ss 33554432 \
   2>&1 | tee "$value.log"
 
  if [ -f "$value.orc" ]; then

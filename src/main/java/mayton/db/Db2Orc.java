@@ -54,6 +54,10 @@ public class Db2Orc extends GenericMainApplication {
                 .addOption("co", "orc.compression", true, "Orc file compression := { NONE, ZLIB, SNAPPY, LZO, LZ4, ZSTD }")
                 .addOption("bc", "orc.bloomcolumns", true, "Orc file bloom filter columns (comma-separated)")
                 .addOption("bf", "orc.bloomfilterfpp", true, "False positive probability for bloom filter [0.75..0.99]")
+                .addOption("ss", "orc.stripesize", true, "The writer stores the contents of the" +
+                                   " stripe in memory until this memory limit is reached and the stripe" +
+                                   " is flushed to the HDFS file and the next stripe started")
+
                 .addOption("ri", "orc.rowindexstride", true, "Row index stride [0..1000], 0 - means no index will be.");
     }
 
@@ -157,8 +161,10 @@ public class Db2Orc extends GenericMainApplication {
     public void process(@NotNull Properties properties) throws SQLException, IOException {
         logger.info("[1] Start process");
 
+        String url = properties.getProperty("url");
+
         try (Connection connection = DriverManager.getConnection(
-                properties.getProperty("url"),
+                url,
                 properties.getProperty("login"),
                 properties.getProperty("password"))) {
 
@@ -177,7 +183,7 @@ public class Db2Orc extends GenericMainApplication {
 
             logger.info("[3] Process type mapper");
 
-            GenericTypeMapper genericTypeMapper = new PgTypeMapper();
+            ITypeMapper genericTypeMapper = MapperManager.instance.detect(url);
 
             while (resultSetColumns.next()) {
                 String columnName = resultSetColumns.getString("COLUMN_NAME");
@@ -251,6 +257,7 @@ public class Db2Orc extends GenericMainApplication {
                 if (line.hasOption("s")) properties.put("selectexpr", line.getOptionValue("s"));
                 if (line.hasOption("co")) properties.put("orc.compression", line.getOptionValue("co"));
                 if (line.hasOption("bf")) properties.put("orc.bloomColumns", line.getOptionValue("bf"));
+                if (line.hasOption("ss")) properties.put("orc.stripesize", line.getOptionValue("ss"));
             }
         }
         process(properties);

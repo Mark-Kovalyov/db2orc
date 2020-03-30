@@ -36,10 +36,10 @@ public class OrcUtils {
         if (properties.containsKey("orc.bloomfilterfpp"))
             opts = opts.bloomFilterFpp(Double.parseDouble(properties.getProperty("orc.bloomfilterfpp")));
 
+        if (properties.contains("orc.stripesize"))
+            opts = opts.stripeSize(Long.parseLong(properties.getProperty("orc.stripesize")));
 
-        // TODO: Not tested yet
-        //if (properties.contains("orc.stripeSize")) opts.stripeSize(Long.parseLong(properties.getProperty("orc.stripeSize")));
-        //if (properties.contains("orc.bufferSize")) opts.bufferSize(Integer.parseInt(properties.getProperty("orc.bufferSize")));
+        opts = opts.enforceBufferSize();
 
         return OrcFile.createWriter(destHadoopPath, opts);
     }
