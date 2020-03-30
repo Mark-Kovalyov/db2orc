@@ -1,4 +1,12 @@
-#!/bin/bash -v
+OD#!/bin/bash -v
+
+DEMO_DB=db1
+DEMO_USER=user1
+DEMO_PWD=pwd1
+
+MTNDB_DB=db1
+MTNDB_USER=user2
+MTNDB_PWD=pwd2
 
 rm -f *crc
 rm -f *orc
@@ -10,9 +18,9 @@ rm -f *log
 for value in aircrafts_data airports_data boarding_passes bookings flights seats ticket_flights tickets
 do
  java -jar db2orc.jar \
-  -u "jdbc:postgresql://127.0.0.1:5432/demo" \
-  -l user \
-  -p pwd123 \
+  -u "jdbc:postgresql://127.0.0.1:5432/$DEMO_DB" \
+  -l $DEMO_USER \
+  -p $DEMO_PWD \
   -o "$value.orc" \
   -t "$value" \
   -co ZLIB \
@@ -31,9 +39,9 @@ done
 for value in geolite_ipv4 geolite_ipv6 geolite_loc
 do
  java -jar db2orc.jar \
-  -u "jdbc:postgresql://127.0.0.1:5432/userdb" \
-  -l user \
-  -p pwd123 \
+  -u "jdbc:postgresql://127.0.0.1:5432/$MTNDB_DB" \
+  -l $MTNDB_USER \
+  -p $MTNDB_PWD \
   -o "$value.orc" \
   -t "$value" \
   -co SNAPPY \
@@ -47,14 +55,14 @@ do
 
 done
 
-# Test BLOOM
+# Test BLOOM-filter for specific column set
 
 for value in chastniki
 do
  java -jar db2orc.jar \
-  -u "jdbc:postgresql://127.0.0.1:5432/userdb" \
-  -l user \
-  -p pwd123 \
+  -u "jdbc:postgresql://127.0.0.1:5432/$MTNDB_DB" \
+  -l $MTNDB_USER \
+  -p $MTNDB_PWD \
   -o "$value.orc" \
   -t "$value" \
   -co NONE \

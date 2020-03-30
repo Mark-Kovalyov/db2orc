@@ -1,11 +1,17 @@
 package mayton.db.h2;
 
 import mayton.db.GenericTypeMapper;
+import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.orc.TypeDescription;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Range;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Optional;
 
 /**
  * <pre>
@@ -65,7 +71,14 @@ public class H2GenericTypeMapper extends GenericTypeMapper {
     }
 
     @Override
-    public @NotNull TypeDescription toOrc(@NotNull String databaseType, @Nullable Integer databaseLength, @Nullable Integer databasePrecision, boolean isNullable) {
+    public @NotNull TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> databaseLength, Optional<Integer> databasePrecision, boolean isNullable) {
         return super.toOrc(databaseType, databaseLength, databasePrecision, isNullable);
     }
+
+    @Override
+    public void toOrcVectorized(@NotNull VectorizedRowBatch batch, @Range(from = 0, to = Integer.MAX_VALUE) int rowInBatch, @NotNull ResultSet resultSet) throws SQLException {
+        super.toOrcVectorized(batch, rowInBatch, resultSet);
+    }
+
+
 }

@@ -2,6 +2,7 @@ package mayton.db.pg;
 
 import mayton.db.OrcTypes;
 import mayton.db.GenericTypeMapper;
+import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.orc.TypeDescription;
@@ -9,11 +10,14 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.concurrent.ThreadSafe;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Optional;
 
 @ThreadSafe
-public class PGGenericType extends GenericTypeMapper {
+public class PgTypeMapper extends GenericTypeMapper {
 
-    static Logger logger = LogManager.getLogger(PGGenericType.class);
+    static Logger logger = LogManager.getLogger(PgTypeMapper.class);
 
     @Override
     public String fromOrc(@NotNull TypeDescription typeDescription) {
@@ -48,7 +52,7 @@ public class PGGenericType extends GenericTypeMapper {
     }
 
     @Override
-    public @NotNull TypeDescription toOrc(@NotNull String databaseType, @Nullable Integer databaseLength, @Nullable Integer databasePrecision, boolean isNullable) {
+    public @NotNull TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> databaseLength, Optional<Integer> databasePrecision, boolean isNullable) {
         if (databaseType.equalsIgnoreCase(PgTypes.JSONB.name())) {
             // TODO: This is not a good idea to convert from json to string. Should be discussed
             TypeDescription typeDesc = TypeDescription.createString();
@@ -58,8 +62,8 @@ public class PGGenericType extends GenericTypeMapper {
         } else if (databaseType.equalsIgnoreCase(PgTypes.VARCHAR.name())) {
             // TODO: Investigate for maxLength limitations
             TypeDescription typeDesc = TypeDescription.createVarchar();
-            if (databaseLength != null) {
-                typeDesc = typeDesc.withMaxLength(databaseLength);
+            if (databaseLength.isPresent()) {
+                typeDesc = typeDesc.withMaxLength(databaseLength.get());
             }
             return typeDesc;
         } else if (databaseType.equalsIgnoreCase(PgTypes.FLOAT8.name())) {
@@ -76,5 +80,11 @@ public class PGGenericType extends GenericTypeMapper {
         } else {
             throw new RuntimeException("Unable to map database type = " + databaseType + " to ORC during header generation");
         }
+    }
+
+
+    @Override
+    public void toOrcVectorized(@NotNull VectorizedRowBatch batch, int rowInBatch, @NotNull ResultSet resultSet) throws SQLException {
+
     }
 }
