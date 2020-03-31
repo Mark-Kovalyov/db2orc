@@ -6,8 +6,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.orc.TypeDescription;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.Range;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -76,7 +74,7 @@ public class H2GenericTypeMapper extends GenericTypeMapper {
     }
 
     @Override
-    public void toOrcVectorized(@NotNull VectorizedRowBatch batch, @Range(from = 0, to = Integer.MAX_VALUE) int rowInBatch, @NotNull ResultSet resultSet) throws SQLException {
+    public void toOrcVectorized(@NotNull VectorizedRowBatch batch, int rowInBatch, @NotNull ResultSet resultSet) throws SQLException {
         super.toOrcVectorized(batch, rowInBatch, resultSet);
     }
 

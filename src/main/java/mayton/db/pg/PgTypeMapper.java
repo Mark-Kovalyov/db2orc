@@ -2,17 +2,22 @@ package mayton.db.pg;
 
 import mayton.db.OrcTypes;
 import mayton.db.GenericTypeMapper;
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
+import org.apache.hadoop.hive.ql.exec.vector.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.orc.TypeDescription;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.concurrent.ThreadSafe;
+import java.math.BigDecimal;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.Optional;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.commons.lang3.ArrayUtils.EMPTY_BYTE_ARRAY;
 
 @ThreadSafe
 public class PgTypeMapper extends GenericTypeMapper {
@@ -82,9 +87,52 @@ public class PgTypeMapper extends GenericTypeMapper {
         }
     }
 
-
     @Override
     public void toOrcVectorized(@NotNull VectorizedRowBatch batch, int rowInBatch, @NotNull ResultSet resultSet) throws SQLException {
-
+        ResultSetMetaData rsmd = resultSet.getMetaData();
+        int columnCount = rsmd.getColumnCount();
+        for (int i = 0; i < columnCount; i++) {
+            String columnClassName = rsmd.getColumnClassName(i + 1);
+            String columnTypeName = rsmd.getColumnTypeName(i + 1);
+            Object sqlFieldValue = resultSet.getObject(i + 1);
+            if (sqlFieldValue != null) {
+                // TODO: PostgreSQL specific mapping
+                if (columnTypeName.equals(PgTypes.BPCHAR.name().toLowerCase()) ||
+                        columnTypeName.equals(PgTypes.VARCHAR.name().toLowerCase()) ||
+                        columnTypeName.equals(PgTypes.TEXT.name().toLowerCase())) {
+                    ((BytesColumnVector) batch.cols[i]).setVal(rowInBatch, ((String) sqlFieldValue).getBytes(UTF_8));
+                } else if (columnTypeName.equals(PgTypes.INT4.name().toLowerCase()) ||
+                        columnTypeName.equals(PgTypes.SERIAL.name().toLowerCase())) {
+                    ((LongColumnVector) batch.cols[i]).vector[rowInBatch] = ((int) sqlFieldValue);
+                } else if (columnTypeName.equals(PgTypes.NUMERIC.name().toLowerCase())) {
+                    ((LongColumnVector) batch.cols[i]).vector[rowInBatch] = ((BigDecimal) sqlFieldValue).longValue();
+                } else if (columnTypeName.equals(PgTypes.FLOAT8.name().toLowerCase())) {
+                    ((DoubleColumnVector) batch.cols[i]).vector[rowInBatch] = (double) sqlFieldValue;
+                } else if (columnTypeName.equals(PgTypes.TIMESTAMPTZ.name().toLowerCase())) {
+                    ((TimestampColumnVector) batch.cols[i]).set(rowInBatch, (Timestamp) sqlFieldValue);
+                } else if (columnTypeName.equals(PgTypes.JSONB.name().toLowerCase()) ||
+                        columnTypeName.equals(PgTypes.POINT.name().toLowerCase())) {
+                    // TODO: Stuped JSONB/POINT stub
+                    ((BytesColumnVector) batch.cols[i]).setVal(rowInBatch, "{}".getBytes(UTF_8));
+                } else {
+                    throw new RuntimeException("Unable to append row for columnClassName = " +
+                            columnClassName + " columnTypeName = " + columnTypeName +
+                            " during vectorized row batch generation, value = " + sqlFieldValue);
+                }
+            } else {
+                // TODO: Stuped null replacement! Rework.
+                if (columnTypeName.equals(PgTypes.BPCHAR.name().toLowerCase()) ||
+                        columnTypeName.equals(PgTypes.VARCHAR.name().toLowerCase()) ||
+                        columnTypeName.equals(PgTypes.TEXT.name().toLowerCase())) {
+                    ((BytesColumnVector) batch.cols[i]).setVal(rowInBatch, EMPTY_BYTE_ARRAY);
+                } else if (columnTypeName.equals(PgTypes.INT4.name().toLowerCase())) {
+                    ((LongColumnVector) batch.cols[i]).vector[rowInBatch] = Integer.MIN_VALUE;
+                } else if (columnTypeName.equals(PgTypes.NUMERIC.name().toLowerCase())) {
+                    ((LongColumnVector) batch.cols[i]).vector[rowInBatch] = Long.MIN_VALUE;
+                } else if (columnTypeName.equals(PgTypes.FLOAT8.name().toLowerCase())) {
+                    ((DoubleColumnVector) batch.cols[i]).vector[rowInBatch] = Double.NaN;
+                }
+            }
+        }
     }
 }

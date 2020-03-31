@@ -1,12 +1,12 @@
 #!/bin/bash -v
 
-DEMO_DB=demo
-DEMO_USER=mayton
-DEMO_PWD=cyberman
+DEMO_DB=**
+DEMO_USER=**
+DEMO_PWD=**
 
-MTNDB_DB=maytondb
-MTNDB_USER=mayton
-MTNDB_PWD=cyberman
+MTNDB_DB=**
+MTNDB_USER=**
+MTNDB_PWD=**
 
 rm -f *crc
 rm -f *orc
