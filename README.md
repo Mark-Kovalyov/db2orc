@@ -3,6 +3,23 @@ This is an Education project to analyze apache orc abilities.
 
 ## Other Utils:
 
+## Test data
+
+GeoLite2 Free Downloadable Databases 
+* https://dev.maxmind.com/geoip/geoip2/geolite2/
+
+Postgres Demo Db
+* https://postgrespro.ru/education/demodb
+
+MySQL Demo Db
+* https://github.com/datacharmer/test_db
+
+MSSQL NorthWind Db
+* https://github.com/microsoft/sql-server-samples
+
+OpenStreetMap
+* https://planet.openstreetmap.org/
+
 ### Native tools:
 
 - orc-contents
