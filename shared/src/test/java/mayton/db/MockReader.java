@@ -179,6 +179,16 @@ public class MockReader implements Reader {
     }
 
     @Override
+    public boolean writerUsedProlepticGregorian() {
+        return false;
+    }
+
+    @Override
+    public boolean getConvertToProlepticGregorian() {
+        return false;
+    }
+
+    @Override
     public void close() throws IOException {
 
     }
