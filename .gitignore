@@ -23,10 +23,13 @@
 hs_err_pid*
 
 dependency-reduced-pom.xml
-release/go-db2orc.sh
 
 # ORC
 *.orc
 *.crc
 
+**/target
+**/.idea
+*.iml
 
+*.index

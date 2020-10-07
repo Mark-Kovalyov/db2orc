@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>mayton.db</groupId>
   <artifactId>db2orc</artifactId>
-  <version>1.1</version>
+  <version>1.2</version>
   <packaging>jar</packaging>
 
   <name>ORC-to-DB and DB-to-ORC utils</name>
@@ -15,6 +15,37 @@
     <maven.compiler.target>1.8</maven.compiler.target>
     <orc.version>1.6.2</orc.version>
   </properties>
+
+  <profiles>
+    <profile>
+      <id>db2orc</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+        <property>
+          <name>targetbinary</name>
+          <value>db2orc</value>
+        </property>
+      </activation>
+      <properties>
+        <main.class.name>mayton.db.Db2Orc</main.class.name>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>orc2db</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+        <property>
+          <name>targetbinary</name>
+          <value>orc2db</value>
+        </property>
+      </activation>
+      <properties>
+        <main.class.name>mayton.db.Orc2Db</main.class.name>
+      </properties>
+    </profile>
+
+  </profiles>
 
   <dependencies>
 
@@ -98,7 +129,7 @@
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <manifestEntries>
-                    <Main-Class>mayton.db.Db2Orc</Main-Class>
+                    <Main-Class>${main.class.name}</Main-Class>
                     <CreatedBy>mayton</CreatedBy>
                     <Built-By>mayton</Built-By>
                   </manifestEntries>
