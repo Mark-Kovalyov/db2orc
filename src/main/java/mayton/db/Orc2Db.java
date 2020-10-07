@@ -78,7 +78,7 @@ public class Orc2Db extends GenericMainApplication {
         String rootTableName = "";
         Properties properties = new Properties();
         if (DEVMODE) {
-            properties.load(new FileInputStream("sensitive.properties"));
+            properties.load(new FileInputStream("orc2db.properties"));
         } else {
             if (args.length == 0) {
                 HelpFormatter formatter = new HelpFormatter();

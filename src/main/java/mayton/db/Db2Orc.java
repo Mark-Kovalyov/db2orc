@@ -27,8 +27,6 @@ public class Db2Orc extends GenericMainApplication {
 
     public static Logger logger = LogManager.getLogger(Db2Orc.class);
 
-    private static final boolean DEVMODE = false;
-
     @NotNull
     @Override
     String createLogo() {
@@ -50,6 +48,7 @@ public class Db2Orc extends GenericMainApplication {
                 .addRequiredOption("l", "login", true, "JDBC login")
                 .addRequiredOption("p", "password", true, "JDBC password")
                 .addRequiredOption("o", "orcfile", true, "Orc file. (ex:big-data.orc)")
+
                 .addOption("s", "selectexpr", true, "SELECT-expression (ex: SELECT * FROM EMP)")
                 .addOption("t", "tablename", true, "Table or View name")
                 .addOption("b", "batchsize", true, "Batch size (rows) default = 50 000")
@@ -63,13 +62,46 @@ public class Db2Orc extends GenericMainApplication {
                 .addOption("ri", "orc.rowindexstride", true, "Row index stride [0..1000], 0 - means no index will be.");
     }
 
+    /**
+     *
+     * Getting results based on a cursor
+     *
+     * By default the driver collects all the results for the query at once. This can be inconvenient for
+     * large data sets so the JDBC driver provides a means of basing a ResultSet on a database cursor and
+     * only fetching a small number of rows.
+     *
+     * A small number of rows are cached on the client side of the connection and when exhausted the next
+     * block of rows is retrieved by repositioning the cursor.
+     *
+     * Note
+     *
+     *     Cursor based ResultSets cannot be used in all situations. There a number of restrictions which
+     *     will make the driver silently fall back to fetching the whole ResultSet at once.
+     *
+     *     - The connection to the server must be using the V3 protocol. This is the default for (and is only supported by)
+     *       server versions 7.4 and later.
+     *     - The Connection must not be in autocommit mode. The backend closes cursors at the end of transactions,
+     *       so in autocommit mode the backend will have closed the cursor before anything can be fetched from it.
+     *     - The Statement must be created with a ResultSet type of ResultSet.TYPE_FORWARD_ONLY. This is the default,
+     *       so no code will need to be rewritten to take advantage of this, but it also means that you cannot scroll
+     *       backwards or otherwise jump around in the ResultSet.
+     *     - The query given must be a single statement, not multiple statements strung together with semicolons.
+     *
+     */
     public void processWithWriter(@NotNull Writer writer, @NotNull TypeDescription schema, @NotNull Connection connection,
                                   @NotNull String query, int batchSize, @NotNull ITypeMapper genericTypeMapper) throws IOException, SQLException {
         // TODO: Consider BCEL/Asm to implement table-per-assembly jvm code
         VectorizedRowBatch batch = schema.createRowBatch(batchSize);
+        connection.setAutoCommit(false);
+
+
+
         try (Statement statement = connection.createStatement()) {
-            logger.debug("execute query : {}", query);
+            logger.info("execute query : {}", query);
+            // TODO: Parametrize
+            statement.setFetchSize(50);
             statement.executeQuery(query);
+            // ResultSet.TYPE_FORWARD_ONLY
             try(ResultSet resultSet = statement.getResultSet()) {
                 int rows = 0;
                 long batches = 0;
@@ -78,6 +110,7 @@ public class Db2Orc extends GenericMainApplication {
                     batch.size++;
                     rows++;
                     if (batch.size >= batchSize) {
+                        logger.trace("Add batch # {}", batches);
                         writer.addRowBatch(batch);
                         batches++;
                         batch.reset();
@@ -85,6 +118,7 @@ public class Db2Orc extends GenericMainApplication {
                     }
                 }
                 if (batch.size > 0) {
+                    logger.trace("Add batch # {}", batches);
                     writer.addRowBatch(batch);
                     batches++;
                     batch.reset();
@@ -150,7 +184,8 @@ public class Db2Orc extends GenericMainApplication {
             logger.info("[6] fs.canonicalServName = {}", currentDirPathFileSystem.getCanonicalServiceName());
             currentDirPathFileSystem.delete(new Path(orcFilePath), false);
             logger.info("[6.1] create Orc-Writer with schema");
-            int batchSize = parseInt(properties.getProperty("batchsize"));
+            //int batchSize = parseInt(properties.getProperty("batchsize"));
+            int batchSize = 1000;
             try (Writer writer = OrcUtils.createWriter(currentDirPathFileSystem, orcFilePath, schema, properties)) {
                 if (selectExpr != null) {
                     // TODO
@@ -172,34 +207,37 @@ public class Db2Orc extends GenericMainApplication {
 
     public void process(String[] args) throws SQLException, ParseException, IOException {
 
-        Properties properties = new Properties();
-        if (DEVMODE) {
-            properties.load(new FileInputStream("sensitive.properties"));
-        } else {
-            CommandLineParser parser = new DefaultParser();
-            Options options = createOptions();
-            if (args.length == 0) {
-                HelpFormatter formatter = new HelpFormatter();
-                formatter.printHelp(createLogo(), createOptions());
-                return;
-            } else {
-                CommandLine line = parser.parse(options, args);
-                // Mandatory
-                properties.put("url", line.getOptionValue("u"));
-                properties.put("login", line.getOptionValue("l"));
-                properties.put("password", line.getOptionValue("p"));
-                properties.put("orcfile", line.getOptionValue("o"));
-                // Optional
+        Properties db2orcProperties = new Properties();
+        db2orcProperties.load(new FileInputStream("db2orc.properties"));
 
-                properties.put("batchsize", line.hasOption("b") ? line.getOptionValue("b") : 50_000);
-                if (line.hasOption("t")) properties.put("tablename", line.getOptionValue("t"));
-                if (line.hasOption("s")) properties.put("selectexpr", line.getOptionValue("s"));
-                if (line.hasOption("co")) properties.put("orc.compression", line.getOptionValue("co"));
-                if (line.hasOption("bf")) properties.put("orc.bloomColumns", line.getOptionValue("bf"));
-                if (line.hasOption("ss")) properties.put("orc.stripesize", line.getOptionValue("ss"));
-            }
+        Properties properties = new Properties();
+
+        CommandLineParser parser = new DefaultParser();
+        Options options = createOptions();
+        if (args.length == 0) {
+            HelpFormatter formatter = new HelpFormatter();
+            formatter.printHelp(createLogo(), createOptions());
+            return;
+        } else {
+            CommandLine line = parser.parse(options, args);
+            // Mandatory
+            properties.put("url", line.getOptionValue("u"));
+            properties.put("login", line.getOptionValue("l"));
+            properties.put("password", line.getOptionValue("p"));
+            properties.put("orcfile", line.getOptionValue("o"));
+            // Optional
+
+            properties.put("batchsize", line.hasOption("b") ? line.getOptionValue("b") : 50_000);
+            if (line.hasOption("t")) properties.put("tablename", line.getOptionValue("t"));
+            if (line.hasOption("s")) properties.put("selectexpr", line.getOptionValue("s"));
+            if (line.hasOption("co")) properties.put("orc.compression", line.getOptionValue("co"));
+            if (line.hasOption("bf")) properties.put("orc.bloomColumns", line.getOptionValue("bf"));
+            if (line.hasOption("ss")) properties.put("orc.stripesize", line.getOptionValue("ss"));
+
+            process(properties);
         }
-        process(properties);
+
+
     }
 
     public static void main(String[] args) throws SQLException, ParseException, IOException, ClassNotFoundException {
