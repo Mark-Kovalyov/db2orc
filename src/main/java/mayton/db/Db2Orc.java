@@ -44,10 +44,12 @@ public class Db2Orc extends GenericMainApplication {
     @Override
     Options createOptions() {
         return new Options()
-                .addRequiredOption("u", "url", true, "JDBC url. (ex:jdbc:oracle:thin@localhost:1521/XE")
-                .addRequiredOption("l", "login", true, "JDBC login")
-                .addRequiredOption("p", "password", true, "JDBC password")
-                .addRequiredOption("o", "orcfile", true, "Orc file. (ex:big-data.orc)")
+                .addOption("u", "url", true, "JDBC url. (ex:jdbc:oracle:thin@localhost:1521/XE")
+                .addOption("l", "login", true, "JDBC login")
+                .addOption("p", "password", true, "JDBC password")
+                .addOption("o", "orcfile", true, "Orc file. (ex:big-data.orc)")
+                .addOption("fs","fetchsize", true, "JDBC fetch size (ex:50)")
+                .addOption("h", "help", false, "Print this help")
 
                 .addOption("s", "selectexpr", true, "SELECT-expression (ex: SELECT * FROM EMP)")
                 .addOption("t", "tablename", true, "Table or View name")
@@ -64,42 +66,44 @@ public class Db2Orc extends GenericMainApplication {
 
     /**
      *
-     * Getting results based on a cursor
+     * <p>Getting results based on a cursor</p>
      *
-     * By default the driver collects all the results for the query at once. This can be inconvenient for
+     * <p>By default the driver collects all the results for the query at once. This can be inconvenient for
      * large data sets so the JDBC driver provides a means of basing a ResultSet on a database cursor and
-     * only fetching a small number of rows.
+     * only fetching a small number of rows.</p>
      *
-     * A small number of rows are cached on the client side of the connection and when exhausted the next
-     * block of rows is retrieved by repositioning the cursor.
+     * <p>A small number of rows are cached on the client side of the connection and when exhausted the next
+     * block of rows is retrieved by repositioning the cursor.</p>
      *
-     * Note
+     * <p>Note</p>
      *
      *     Cursor based ResultSets cannot be used in all situations. There a number of restrictions which
      *     will make the driver silently fall back to fetching the whole ResultSet at once.
      *
-     *     - The connection to the server must be using the V3 protocol. This is the default for (and is only supported by)
+     *     <ul>
+     *     <li>The connection to the server must be using the V3 protocol. This is the default for (and is only supported by)
      *       server versions 7.4 and later.
-     *     - The Connection must not be in autocommit mode. The backend closes cursors at the end of transactions,
+     *     <li>The Connection must not be in autocommit mode. The backend closes cursors at the end of transactions,
      *       so in autocommit mode the backend will have closed the cursor before anything can be fetched from it.
-     *     - The Statement must be created with a ResultSet type of ResultSet.TYPE_FORWARD_ONLY. This is the default,
+     *     <li>The Statement must be created with a ResultSet type of ResultSet.TYPE_FORWARD_ONLY. This is the default,
      *       so no code will need to be rewritten to take advantage of this, but it also means that you cannot scroll
      *       backwards or otherwise jump around in the ResultSet.
-     *     - The query given must be a single statement, not multiple statements strung together with semicolons.
+     *     <li>The query given must be a single statement, not multiple statements strung together with semicolons.
+     *     </ul>
      *
      */
     public void processWithWriter(@NotNull Writer writer, @NotNull TypeDescription schema, @NotNull Connection connection,
-                                  @NotNull String query, int batchSize, @NotNull ITypeMapper genericTypeMapper) throws IOException, SQLException {
+                                  @NotNull String query, int orcBatchSize, int jdbcFetchSize, @NotNull ITypeMapper genericTypeMapper) throws IOException, SQLException {
+        logger.traceEntry("processWithWriter orcBatchSize = {}, jdbcFetchSize = {}", orcBatchSize, jdbcFetchSize);
+
         // TODO: Consider BCEL/Asm to implement table-per-assembly jvm code
-        VectorizedRowBatch batch = schema.createRowBatch(batchSize);
+        VectorizedRowBatch batch = schema.createRowBatch(orcBatchSize);
         connection.setAutoCommit(false);
-
-
 
         try (Statement statement = connection.createStatement()) {
             logger.info("execute query : {}", query);
             // TODO: Parametrize
-            statement.setFetchSize(50);
+            statement.setFetchSize(jdbcFetchSize);
             statement.executeQuery(query);
             // ResultSet.TYPE_FORWARD_ONLY
             try(ResultSet resultSet = statement.getResultSet()) {
@@ -109,7 +113,7 @@ public class Db2Orc extends GenericMainApplication {
                     genericTypeMapper.toOrcVectorized(batch, rows, resultSet);
                     batch.size++;
                     rows++;
-                    if (batch.size >= batchSize) {
+                    if (batch.size >= orcBatchSize) {
                         logger.trace("Add batch # {}", batches);
                         writer.addRowBatch(batch);
                         batches++;
@@ -184,14 +188,21 @@ public class Db2Orc extends GenericMainApplication {
             logger.info("[6] fs.canonicalServName = {}", currentDirPathFileSystem.getCanonicalServiceName());
             currentDirPathFileSystem.delete(new Path(orcFilePath), false);
             logger.info("[6.1] create Orc-Writer with schema");
-            //int batchSize = parseInt(properties.getProperty("batchsize"));
+
             int batchSize = 1000;
+            if (properties.containsKey("batchsize")) {
+                batchSize = Integer.parseInt(properties.getProperty("batchsize"));
+            }
+            int fetchSize = 50;
+            if (properties.containsKey("fetchsize")) {
+                fetchSize = Integer.parseInt(properties.getProperty("fetchsize"));
+            }
             try (Writer writer = OrcUtils.createWriter(currentDirPathFileSystem, orcFilePath, schema, properties)) {
                 if (selectExpr != null) {
                     // TODO
                     throw new RuntimeException("Non implemented yet!");
                 } else if (tableName != null) {
-                    processWithWriter(writer, schema, connection, "SELECT * FROM " + tableName, batchSize, genericTypeMapper);
+                    processWithWriter(writer, schema, connection, "SELECT * FROM " + tableName, batchSize, fetchSize, genericTypeMapper);
                 } else {
                     throw new IllegalArgumentException("Undefined table or SQL-expression for export!");
                 }
@@ -208,7 +219,11 @@ public class Db2Orc extends GenericMainApplication {
     public void process(String[] args) throws SQLException, ParseException, IOException {
 
         Properties db2orcProperties = new Properties();
-        db2orcProperties.load(new FileInputStream("db2orc.properties"));
+        try {
+            db2orcProperties.load(new FileInputStream("db2orc.properties"));
+        } catch (IOException ex) {
+            logger.warn("Unable to found db2orc.properties");
+        }
 
         Properties properties = new Properties();
 
@@ -217,9 +232,13 @@ public class Db2Orc extends GenericMainApplication {
         if (args.length == 0) {
             HelpFormatter formatter = new HelpFormatter();
             formatter.printHelp(createLogo(), createOptions());
-            return;
         } else {
             CommandLine line = parser.parse(options, args);
+            if (line.hasOption("h")) {
+                HelpFormatter formatter = new HelpFormatter();
+                formatter.printHelp(createLogo(), createOptions());
+                return;
+            }
             // Mandatory
             properties.put("url", line.getOptionValue("u"));
             properties.put("login", line.getOptionValue("l"));
@@ -228,11 +247,14 @@ public class Db2Orc extends GenericMainApplication {
             // Optional
 
             properties.put("batchsize", line.hasOption("b") ? line.getOptionValue("b") : 50_000);
-            if (line.hasOption("t")) properties.put("tablename", line.getOptionValue("t"));
-            if (line.hasOption("s")) properties.put("selectexpr", line.getOptionValue("s"));
+
+            if (line.hasOption("t"))  properties.put("tablename", line.getOptionValue("t"));
+            if (line.hasOption("s"))  properties.put("selectexpr", line.getOptionValue("s"));
             if (line.hasOption("co")) properties.put("orc.compression", line.getOptionValue("co"));
             if (line.hasOption("bf")) properties.put("orc.bloomColumns", line.getOptionValue("bf"));
             if (line.hasOption("ss")) properties.put("orc.stripesize", line.getOptionValue("ss"));
+            if (line.hasOption("b"))  properties.put("orc.batchsize", line.getOptionValue("b"));
+            if (line.hasOption("fs")) properties.put("fetchsize", line.getOptionValue("fs"));
 
             process(properties);
         }
