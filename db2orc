@@ -1,5 +1,3 @@
-#!/bin/bash -v
+#!/bin/bash
 
-java -jar db2orc.jar $*
-
-
+java -Xmx2g -jar db2orc.jar $*

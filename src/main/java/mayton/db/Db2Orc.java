@@ -1,7 +1,5 @@
 package mayton.db;
 
-import mayton.db.pg.PgTypeMapper;
-import mayton.db.pg.PgTypes;
 import org.apache.commons.cli.*;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -12,17 +10,11 @@ import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.sql.*;
 import java.util.Optional;
-import java.util.Properties;
 
-import static java.lang.Integer.parseInt;
-import static java.nio.charset.StandardCharsets.UTF_8;
-
-@SuppressWarnings("java:S2629")
+@SuppressWarnings({"java:S2629","java:S1192","java:S112","java:S1135"})
 public class Db2Orc extends GenericMainApplication {
 
     public static Logger logger = LogManager.getLogger(Db2Orc.class);
@@ -44,20 +36,23 @@ public class Db2Orc extends GenericMainApplication {
     @Override
     Options createOptions() {
         return new Options()
-                .addOption("u", "url", true, "JDBC url. (ex:jdbc:oracle:thin@localhost:1521/XE")
-                .addOption("l", "login", true, "JDBC login")
-                .addOption("p", "password", true, "JDBC password")
-                .addOption("o", "orcfile", true, "Orc file. (ex:big-data.orc)")
+                .addOption("u", "url",       true, "JDBC url. (ex:jdbc:oracle:thin@localhost:1521/XE")
+                .addOption("l", "login",     true, "JDBC login")
+                .addOption("p", "password",  true, "JDBC password")
+                .addOption("o", "orcfile",   true, "Orc file. (ex:big-data.orc)")
                 .addOption("fs","fetchsize", true, "JDBC fetch size (ex:50)")
-                .addOption("h", "help", false, "Print this help")
+                .addOption("h", "help",      false, "Print this help")
 
                 .addOption("s", "selectexpr", true, "SELECT-expression (ex: SELECT * FROM EMP)")
-                .addOption("t", "tablename", true, "Table or View name")
-                .addOption("b", "batchsize", true, "Batch size (rows) default = 50 000")
-                .addOption("co", "orc.compression", true, "Orc file compression := { NONE, ZLIB, SNAPPY, LZO, LZ4, ZSTD }")
-                .addOption("bc", "orc.bloomcolumns", true, "Orc file bloom filter columns (comma-separated)")
+                .addOption("t", "tablename",  true, "Table or View name")
+                .addOption("b", "batchsize",  true, "Batch size (rows) default = 50 000")
+
+                // TODO: Test all
+                .addOption("bs", "orc.buffersize",     true, "Orc buffersize (integer)")
+                .addOption("co", "orc.compression",    true, "Orc file compression := { NONE, ZLIB, SNAPPY, LZO, LZ4, ZSTD }")
+                .addOption("bc", "orc.bloomcolumns",   true, "Orc file bloom filter columns (comma-separated)")
                 .addOption("bf", "orc.bloomfilterfpp", true, "False positive probability (float) for bloom filter [0.75..0.99]")
-                .addOption("ss", "orc.stripesize", true, "The writer stores the contents of the" +
+                .addOption("ss", "orc.stripesize",     true, "The writer stores the contents of the" +
                                    " stripe in memory until this memory limit is reached and the stripe" +
                                    " is flushed to the HDFS file and the next stripe started")
 
@@ -132,84 +127,98 @@ public class Db2Orc extends GenericMainApplication {
         }
     }
 
-    public void process(@NotNull Properties properties) throws SQLException, IOException {
-        logger.info("[1] Start process");
-
-        String url = properties.getProperty("url");
-
-        try (Connection connection = DriverManager.getConnection(
-                url,
-                properties.getProperty("login"),
-                properties.getProperty("password"))) {
-
-            logger.info("[2] Read metadata from DB");
-
-            DatabaseMetaData metadata = connection.getMetaData();
-
-            String tableName = (String) properties.getOrDefault("tablename", null);
-            String selectExpr = (String) properties.getOrDefault("selectexpr", null);
-
+    public TypeDescription prepareTypeDescription(@NotNull Connection connection, @NotNull CommandLine line) throws SQLException {
+        DatabaseMetaData metadata = connection.getMetaData();
+        String url = line.getOptionValue("url");
+        String tableName = line.getOptionValue("tablename");
+        String selectExpr = line.getOptionValue("selectexpr");
+        TypeDescription schema;
+        if (tableName != null) {
             ResultSet resultSetColumns = SQLUtils.getColumns(metadata, tableName);
-
-            ResultSetMetaData resultSetColumnsMetaData = resultSetColumns.getMetaData();
-
-            TypeDescription schema = TypeDescription.createStruct();
-
+            schema = TypeDescription.createStruct();
             logger.info("[3] Process type mapper");
-
             ITypeMapper genericTypeMapper = MapperManager.instance.detect(url);
-
             while (resultSetColumns.next()) {
                 String columnName = resultSetColumns.getString("COLUMN_NAME");
                 int dataType = resultSetColumns.getInt("DATA_TYPE");
                 String typeName = resultSetColumns.getString("TYPE_NAME");
                 int nullAllowed = resultSetColumns.getInt("NULLABLE");
                 int columnSize = resultSetColumns.getInt("COLUMN_SIZE");
-
                 logger.info("{} : dataType = {}, columnSize = {}, typeName = {}, nullAllowred = {}", columnName, dataType, columnSize, typeName, nullAllowed);
                 // TODO: Pass length, precission, nullable
                 TypeDescription typeDescription = genericTypeMapper.toOrc(typeName, Optional.of(columnSize), Optional.of(0), true);
                 logger.info("typeDescription = {}", typeDescription);
                 schema.addField(columnName, typeDescription);
             }
-
             resultSetColumns.close();
+        } else if (selectExpr != null) {
+            throw new RuntimeException("Not implemented yet!");
+        } else {
+            throw new RuntimeException("Unable to detect 'tablename' or 'selectexpr' parameter!");
+        }
+        return schema;
+    }
 
-            String orcFilePath = properties.getProperty("orcfile");
-            logger.info("[4] Export ORC file = {}", orcFilePath);
-            Configuration conf = new Configuration();
-            conf.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
-            conf.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
-            String userDir = System.getProperty("user.dir");
-            logger.info("[4.3] User dir = {}", userDir);
-            org.apache.hadoop.fs.Path currentDirPath = new org.apache.hadoop.fs.Path(userDir);
-            logger.info("[5] currentDirPath = {}", currentDirPath);
-            org.apache.hadoop.fs.FileSystem currentDirPathFileSystem = currentDirPath.getFileSystem(conf);
-            logger.info("[6] fs.canonicalServName = {}", currentDirPathFileSystem.getCanonicalServiceName());
-            currentDirPathFileSystem.delete(new Path(orcFilePath), false);
-            logger.info("[6.1] create Orc-Writer with schema");
+    public void processRows(@NotNull Connection connection, @NotNull TypeDescription schema, @NotNull CommandLine line) throws IOException {
 
-            int batchSize = 1000;
-            if (properties.containsKey("batchsize")) {
-                batchSize = Integer.parseInt(properties.getProperty("batchsize"));
+        String orcFilePath = line.getOptionValue("orcfile");
+        logger.info("[4] Export ORC file = {}", orcFilePath);
+        Configuration conf = new Configuration();
+        conf.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
+        conf.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
+        String userDir = System.getProperty("user.dir");
+        logger.info("[4.3] User dir = {}", userDir);
+        org.apache.hadoop.fs.Path currentDirPath = new org.apache.hadoop.fs.Path(userDir);
+        logger.info("[5] currentDirPath = {}", currentDirPath);
+        org.apache.hadoop.fs.FileSystem currentDirPathFileSystem = currentDirPath.getFileSystem(conf);
+        logger.info("[6] fs.canonicalServName = {}", currentDirPathFileSystem.getCanonicalServiceName());
+        currentDirPathFileSystem.delete(new Path(orcFilePath), false);
+        logger.info("[6.1] create Orc-Writer with schema");
+
+        int batchSize = 1000;
+        if (line.hasOption("batchsize")) {
+            batchSize = Integer.parseInt(line.getOptionValue("batchsize"));
+        }
+        int fetchSize = 50;
+        if (line.hasOption("fetchsize")) {
+            fetchSize = Integer.parseInt(line.getOptionValue("fetchsize"));
+        }
+        String tableName = line.getOptionValue("tablename");
+        String selectExpr = line.getOptionValue("selectexpr");
+        ITypeMapper genericTypeMapper = MapperManager.instance.detect(line.getOptionValue("url"));
+        try (Writer writer = OrcUtils.createWriter(currentDirPathFileSystem, orcFilePath, schema, line)) {
+            if (selectExpr != null) {
+                // TODO
+                throw new RuntimeException("Non implemented yet!");
+            } else if (tableName != null) {
+                processWithWriter(writer, schema, connection, "SELECT * FROM " + tableName, batchSize, fetchSize, genericTypeMapper);
+            } else {
+                throw new IllegalArgumentException("Undefined table or SQL-expression for export!");
             }
-            int fetchSize = 50;
-            if (properties.containsKey("fetchsize")) {
-                fetchSize = Integer.parseInt(properties.getProperty("fetchsize"));
-            }
-            try (Writer writer = OrcUtils.createWriter(currentDirPathFileSystem, orcFilePath, schema, properties)) {
-                if (selectExpr != null) {
-                    // TODO
-                    throw new RuntimeException("Non implemented yet!");
-                } else if (tableName != null) {
-                    processWithWriter(writer, schema, connection, "SELECT * FROM " + tableName, batchSize, fetchSize, genericTypeMapper);
-                } else {
-                    throw new IllegalArgumentException("Undefined table or SQL-expression for export!");
-                }
-            } catch (IOException ex) {
-                logger.error("IOException : ", ex);
-            }
-            logger.info("[6.2] Orc-Writer closed");
+        } catch (IOException | SQLException ex) {
+            logger.error("IOException : ", ex);
+        }
+        logger.info("[6.2] Orc-Writer closed");
+    }
+
+    public void process(@NotNull CommandLine line) throws SQLException, IOException {
+        logger.info("[1] Start process");
+
+        String url = line.getOptionValue("u");
+        logger.trace("url = {}", url);
+
+        try (Connection connection = DriverManager.getConnection(
+                url,
+                line.getOptionValue("l"),
+                line.getOptionValue("p"))) {
+
+            logger.info("[2] Read metadata from DB");
+
+
+            TypeDescription schema = prepareTypeDescription(connection, line);
+
+            processRows(connection, schema, line);
+
         } catch (SQLException ex) {
             logger.error("SQLException : ", ex);
         }
@@ -217,15 +226,6 @@ public class Db2Orc extends GenericMainApplication {
     }
 
     public void process(String[] args) throws SQLException, ParseException, IOException {
-
-        Properties db2orcProperties = new Properties();
-        try {
-            db2orcProperties.load(new FileInputStream("db2orc.properties"));
-        } catch (IOException ex) {
-            logger.warn("Unable to found db2orc.properties");
-        }
-
-        Properties properties = new Properties();
 
         CommandLineParser parser = new DefaultParser();
         Options options = createOptions();
@@ -239,30 +239,12 @@ public class Db2Orc extends GenericMainApplication {
                 formatter.printHelp(createLogo(), createOptions());
                 return;
             }
-            // Mandatory
-            properties.put("url", line.getOptionValue("u"));
-            properties.put("login", line.getOptionValue("l"));
-            properties.put("password", line.getOptionValue("p"));
-            properties.put("orcfile", line.getOptionValue("o"));
-            // Optional
-
-            properties.put("batchsize", line.hasOption("b") ? line.getOptionValue("b") : 50_000);
-
-            if (line.hasOption("t"))  properties.put("tablename", line.getOptionValue("t"));
-            if (line.hasOption("s"))  properties.put("selectexpr", line.getOptionValue("s"));
-            if (line.hasOption("co")) properties.put("orc.compression", line.getOptionValue("co"));
-            if (line.hasOption("bf")) properties.put("orc.bloomColumns", line.getOptionValue("bf"));
-            if (line.hasOption("ss")) properties.put("orc.stripesize", line.getOptionValue("ss"));
-            if (line.hasOption("b"))  properties.put("orc.batchsize", line.getOptionValue("b"));
-            if (line.hasOption("fs")) properties.put("fetchsize", line.getOptionValue("fs"));
-
-            process(properties);
+            process(line);
         }
-
 
     }
 
-    public static void main(String[] args) throws SQLException, ParseException, IOException, ClassNotFoundException {
+    public static void main(String[] args) throws SQLException, ParseException, IOException {
         System.setProperty("log4j1.compatibility", "true");
         System.setProperty("log4j.configuration", "log4j.properties");
         new Db2Orc().process(args);

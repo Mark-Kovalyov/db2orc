@@ -1,5 +1,3 @@
-#!/bin/bash -v
+#!/bin/bash
 
 java -jar orc2db.jar $*
-
-

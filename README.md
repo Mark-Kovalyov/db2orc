@@ -41,13 +41,39 @@ Y88b 888 888 d88P 888"       Y88..88P 888    Y88b.
  
 ```
 
-## Compression for test samples (PostgreSQL)
+## Usecase 1: Export table 'organization' from PG database to ORC
+```
+java -Xmx2G \  
+  -jar db2orc.jar \
+  -u "jdbc:postgresql://127.0.0.1:5432/$DEMO_DB" \
+  -l $DEMO_USER \
+  -p $DEMO_PWD \
+  -o "organization.orc" \
+  -t "organization"
+```
+## Usecase 1: Export table 'person' from PG database to ORC with column selection
+```
+java -Xmx2G \  
+  -jar db2orc.jar \
+  -u "jdbc:postgresql://127.0.0.1:5432/$DEMO_DB" \
+  -l $DEMO_USER \
+  -p $DEMO_PWD \
+  -o "person.orc" \
+  --selectexpr "select id,given_name from person where given_name is not null"
+```
 
-|Table          |Rows      |Size(PG)|Size(ORC)  |Compression ratio (%)|
-|---------------|----------|--------|-----------|---------------------|
-|organization   | 6 300 010|1407 MB |275 MB     | 19.5 %              |
-|person         |14 383 339|3720 MB |561 MB     | 15 %                | 
 
+## Compression statistics for test samples (PostgreSQL)
+
+|Table          |Rows      |Size (PG table)|Size (pg_dump/c)|Size (orc) |Compression ratio (%)|
+|---------------|----------|---------------|----------------|-----------|---------------------|
+|organization   | 6 300 010|        1407 MB|         290 MB |     275 MB| 19.5 %              |
+|person         |14 383 339|        3720 MB|         534 MB |     561 MB| 15 %                | 
+
+```
+$ pg_dump -d $dbname --table=organization --file=organization-c.dump --format=c
+$ pg_dump -d $dbname --table=person --file=person-с.dump --format=c
+```
 
 
 ## Other Utils:

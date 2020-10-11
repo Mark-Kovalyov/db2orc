@@ -1,5 +1,6 @@
 package mayton.db;
 
+import org.apache.commons.cli.CommandLine;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.logging.log4j.LogManager;
@@ -12,7 +13,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
 import java.io.IOException;
-import java.util.Properties;
 
 public class OrcUtils {
 
@@ -20,24 +20,27 @@ public class OrcUtils {
 
     private OrcUtils(){}
 
-    public static Writer createWriter(@NotNull FileSystem fileSystem, @NotNull String destPath, @NotNull TypeDescription schema, @NotNull Properties properties) throws IOException {
+    public static Writer createWriter(@NotNull FileSystem fileSystem, @NotNull String destPath, @NotNull TypeDescription schema, @NotNull CommandLine line) throws IOException {
         Path destHadoopPath = new Path(destPath);
         OrcFile.WriterOptions opts = OrcFile.writerOptions(fileSystem.getConf()).setSchema(schema);
 
-        if (properties.containsKey("orc.compression"))
-            opts = opts.compress(CompressionKind.valueOf(properties.getProperty("orc.compression")));
+        if (line.hasOption("orc.compression"))
+            opts = opts.compress(CompressionKind.valueOf(line.getOptionValue("orc.compression")));
 
-        if (properties.containsKey("orc.rowindexstride"))
-            opts = opts.rowIndexStride(Integer.parseInt(properties.getProperty("orc.rowindexstride")));
+        if (line.hasOption("orc.rowindexstride"))
+            opts = opts.rowIndexStride(Integer.parseInt(line.getOptionValue("orc.rowindexstride")));
 
-        if (properties.containsKey("orc.bloomcolumns"))
-            opts = opts.bloomFilterColumns(properties.getProperty("orc.bloomcolumns"));
+        if (line.hasOption("orc.bloomcolumns"))
+            opts = opts.bloomFilterColumns(line.getOptionValue("orc.bloomcolumns"));
 
-        if (properties.containsKey("orc.bloomfilterfpp"))
-            opts = opts.bloomFilterFpp(Double.parseDouble(properties.getProperty("orc.bloomfilterfpp")));
+        if (line.hasOption("orc.bloomfilterfpp"))
+            opts = opts.bloomFilterFpp(Double.parseDouble(line.getOptionValue("orc.bloomfilterfpp")));
 
-        if (properties.contains("orc.stripesize"))
-            opts = opts.stripeSize(Long.parseLong(properties.getProperty("orc.stripesize")));
+        if (line.hasOption("orc.stripesize"))
+            opts = opts.stripeSize(Long.parseLong(line.getOptionValue("orc.stripesize")));
+
+        if (line.hasOption("orc.buffersize"))
+            opts = opts.bufferSize(Integer.parseInt(line.getOptionValue("orc.buffersize")));
 
         opts = opts.enforceBufferSize();
 
