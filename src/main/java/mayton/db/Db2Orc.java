@@ -128,31 +128,78 @@ public class Db2Orc extends GenericMainApplication {
     }
 
     public TypeDescription prepareTypeDescription(@NotNull Connection connection, @NotNull CommandLine line) throws SQLException {
+        logger.info("prepareTypeDescription");
         DatabaseMetaData metadata = connection.getMetaData();
-        String url = line.getOptionValue("url");
-        String tableName = line.getOptionValue("tablename");
+        String url        = line.getOptionValue("url");
+        String tableName  = line.getOptionValue("tablename");
         String selectExpr = line.getOptionValue("selectexpr");
-        TypeDescription schema;
+        TypeDescription schema = TypeDescription.createStruct();
+        ITypeMapper genericTypeMapper = MapperManager.instance.detect(url);
         if (tableName != null) {
+            logger.info("Table name mode");
             ResultSet resultSetColumns = SQLUtils.getColumns(metadata, tableName);
-            schema = TypeDescription.createStruct();
-            logger.info("[3] Process type mapper");
-            ITypeMapper genericTypeMapper = MapperManager.instance.detect(url);
+            logger.trace("[3.2] Process type mapper");
+            int cnt = 0;
             while (resultSetColumns.next()) {
+                if (logger.isDebugEnabled()) {
+                    for (int i = 1; i <= 23; i++) {
+                        logger.trace("[3.3] :: {}, column# = {}, object = {}, type = {}", cnt, i, resultSetColumns.getObject(i), resultSetColumns.getType());
+                    }
+                }
+                cnt++;
                 String columnName = resultSetColumns.getString("COLUMN_NAME");
-                int dataType = resultSetColumns.getInt("DATA_TYPE");
-                String typeName = resultSetColumns.getString("TYPE_NAME");
-                int nullAllowed = resultSetColumns.getInt("NULLABLE");
-                int columnSize = resultSetColumns.getInt("COLUMN_SIZE");
-                logger.info("{} : dataType = {}, columnSize = {}, typeName = {}, nullAllowred = {}", columnName, dataType, columnSize, typeName, nullAllowed);
-                // TODO: Pass length, precission, nullable
-                TypeDescription typeDescription = genericTypeMapper.toOrc(typeName, Optional.of(columnSize), Optional.of(0), true);
+                int dataType      = resultSetColumns.getInt("DATA_TYPE");
+                String typeName   = resultSetColumns.getString("TYPE_NAME");
+                int nullAllowed   = resultSetColumns.getInt("NULLABLE");
+                int columnSize    = resultSetColumns.getInt("COLUMN_SIZE");
+                int scale         = resultSetColumns.getInt(9); // TODO: What is the field name?
+                logger.trace("[3.1] columnName {} : dataType = {}, columnSize = {}, scale = {}, typeName = {}, nullAllowred = {}",
+                        columnName,
+                        dataType,
+                        columnSize,
+                        scale,
+                        typeName,
+                        nullAllowed);
+                // TODO: Pass nullable
+                TypeDescription typeDescription = genericTypeMapper.toOrc(
+                        typeName,
+                        Optional.of(columnSize),
+                        Optional.of(scale),
+                        true);
+
                 logger.info("typeDescription = {}", typeDescription);
                 schema.addField(columnName, typeDescription);
             }
             resultSetColumns.close();
         } else if (selectExpr != null) {
-            throw new RuntimeException("Not implemented yet!");
+            logger.info("'Select-expr' mode");
+            try (Statement statement = connection.createStatement();
+                 // TODO : Adopt to oracle-style, my-sql e.t.c. 'limit' expression
+                 ResultSet resultSet = statement.executeQuery(selectExpr + " LIMIT 1")) {
+                ResultSetMetaData rsmd = resultSet.getMetaData();
+                int numberOfColumns = rsmd.getColumnCount();
+                logger.trace("[3.5] Number of columns : {}", numberOfColumns);
+                for (int i = 1; i <= numberOfColumns; i++) {
+                    String columnName = rsmd.getColumnName(i);
+                    String typeName   = rsmd.getColumnTypeName(i);
+                    int precision     = rsmd.getPrecision(i);
+                    int scale         = rsmd.getScale(i);
+                    // TODO: pass nullable
+                    TypeDescription typeDescription = genericTypeMapper.toOrc(
+                            typeName,
+                            Optional.of(precision),
+                            Optional.of(scale),
+                            true);
+
+                    logger.trace("[3.6] Column {} : typeName = {}, precision = {}, scale = {}",
+                            columnName,
+                            typeName,
+                            precision,
+                            scale);
+
+                    schema.addField(columnName, typeDescription);
+                }
+            }
         } else {
             throw new RuntimeException("Unable to detect 'tablename' or 'selectexpr' parameter!");
         }
@@ -186,10 +233,10 @@ public class Db2Orc extends GenericMainApplication {
         String tableName = line.getOptionValue("tablename");
         String selectExpr = line.getOptionValue("selectexpr");
         ITypeMapper genericTypeMapper = MapperManager.instance.detect(line.getOptionValue("url"));
+
         try (Writer writer = OrcUtils.createWriter(currentDirPathFileSystem, orcFilePath, schema, line)) {
             if (selectExpr != null) {
-                // TODO
-                throw new RuntimeException("Non implemented yet!");
+                processWithWriter(writer, schema, connection, selectExpr, batchSize, fetchSize, genericTypeMapper);
             } else if (tableName != null) {
                 processWithWriter(writer, schema, connection, "SELECT * FROM " + tableName, batchSize, fetchSize, genericTypeMapper);
             } else {
@@ -202,6 +249,7 @@ public class Db2Orc extends GenericMainApplication {
     }
 
     public void process(@NotNull CommandLine line) throws SQLException, IOException {
+
         logger.info("[1] Start process");
 
         String url = line.getOptionValue("u");
@@ -213,7 +261,6 @@ public class Db2Orc extends GenericMainApplication {
                 line.getOptionValue("p"))) {
 
             logger.info("[2] Read metadata from DB");
-
 
             TypeDescription schema = prepareTypeDescription(connection, line);
 

@@ -3,11 +3,10 @@
 # General test
 
 # Debug
+#  
 #  -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 \
 
-java -version
-
-for value in organization
+for value in person
 do
  java -Xmx2G \
   -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath="./dump" \
@@ -16,11 +15,7 @@ do
   -l $DEMO_USER \
   -p $DEMO_PWD \
   -o "$value.orc" \
-  -t "$value" \
-  -co ZLIB \
-  --fetchsize 80 \
-  --batchsize 950 \
-  -ri 0
+  --selectexpr "select * from $value"
 
  if [ -f "$value.orc" ]; then
     orc-metadata -v "$value.orc" > "$value-metadata.txt"

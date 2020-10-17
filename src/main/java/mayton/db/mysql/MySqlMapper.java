@@ -17,8 +17,8 @@ public class MySqlMapper extends GenericTypeMapper {
     }
 
     @Override
-    public @NotNull TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> databaseLength, Optional<Integer> databasePrecision, boolean isNullable) {
-        return super.toOrc(databaseType, databaseLength, databasePrecision, isNullable);
+    public @NotNull TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> dataTypeLength, Optional<Integer> dataTypeScale, boolean isNullable) {
+        return super.toOrc(databaseType, dataTypeLength, dataTypeScale, isNullable);
     }
 
     @Override

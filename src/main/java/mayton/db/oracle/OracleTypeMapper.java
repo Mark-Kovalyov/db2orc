@@ -21,7 +21,7 @@ public class OracleTypeMapper extends GenericTypeMapper {
     }
 
     @Override
-    public @NotNull TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> databaseLength, Optional<Integer> databasePrecision, boolean isNullable) {
+    public @NotNull TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> dataTypeLength, Optional<Integer> dataTypeScale, boolean isNullable) {
         // TODO:
         return TypeDescription.createString();
     }

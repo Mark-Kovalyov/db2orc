@@ -12,10 +12,13 @@ import java.util.Optional;
 
 public interface ITypeMapper {
 
-    @NotNull @Contract(pure = true) String fromOrc(@NotNull TypeDescription typeDescription);
+    @NotNull @Contract(pure = true)
+    String fromOrc(@NotNull TypeDescription typeDescription);
 
-    @NotNull @Contract(pure = true) TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> databaseLength, Optional<Integer> databasePrecision, boolean isNullable);
+    @NotNull @Contract(pure = true)
+    TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> dataTypeLength, Optional<Integer> dataTypeScale, boolean isNullable);
 
-    @Contract(pure = false) void toOrcVectorized(@NotNull VectorizedRowBatch batch, @Range(from = 0, to = Integer.MAX_VALUE) int rowInBatch, @NotNull ResultSet resultSet) throws SQLException;
+    @Contract(pure = false)
+    void toOrcVectorized(@NotNull VectorizedRowBatch batch, @Range(from = 0, to = Integer.MAX_VALUE) int rowInBatch, @NotNull ResultSet resultSet) throws SQLException;
 
 }

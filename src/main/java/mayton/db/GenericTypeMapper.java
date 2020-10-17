@@ -17,7 +17,7 @@ public class GenericTypeMapper implements ITypeMapper {
     }
 
     @Override
-    public @NotNull TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> databaseLength, Optional<Integer> databasePrecision, boolean isNullable) {
+    public @NotNull TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> dataTypeLength, Optional<Integer> dataTypeScale, boolean isNullable) {
         return TypeDescription.createString();
     }
 

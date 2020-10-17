@@ -57,23 +57,34 @@ public class PgTypeMapper extends GenericTypeMapper {
     }
 
     @Override
-    public @NotNull TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> databaseLength, Optional<Integer> databasePrecision, boolean isNullable) {
+    public @NotNull TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> dataTypeLength, Optional<Integer> dataTypeScale, boolean isNullable) {
+        logger.trace(":: toOrc dt = {}, dtl = {}, dts = {}, isNul = {}",
+                databaseType,
+                dataTypeLength.isPresent() ? String.valueOf(dataTypeLength.get()) : "?",
+                dataTypeScale.isPresent() ? String.valueOf(dataTypeScale.get()) : "?",
+                isNullable);
+
         if (databaseType.equalsIgnoreCase(PgTypes.JSONB.name())) {
             // TODO: This is not a good idea to convert from json to string. Should be discussed
             TypeDescription typeDesc = TypeDescription.createString();
+            return typeDesc;
+        } else if (databaseType.equalsIgnoreCase(PgTypes.NUMERIC.name())) {
+            TypeDescription typeDesc = TypeDescription.createDecimal();
+            if (dataTypeLength.isPresent()) typeDesc = typeDesc.withPrecision(dataTypeLength.get());
+            if (dataTypeScale.isPresent()) typeDesc = typeDesc.withScale(dataTypeScale.get());
             return typeDesc;
         } else if (databaseType.equalsIgnoreCase(PgTypes.TEXT.name())) {
             return TypeDescription.createString();
         } else if (databaseType.equalsIgnoreCase(PgTypes.VARCHAR.name())) {
             // TODO: Investigate for maxLength limitations
             TypeDescription typeDesc = TypeDescription.createVarchar();
-            if (databaseLength.isPresent()) {
-                typeDesc = typeDesc.withMaxLength(databaseLength.get());
+            if (dataTypeLength.isPresent()) {
+                typeDesc = typeDesc.withMaxLength(dataTypeLength.get());
             }
             return typeDesc;
         } else if (databaseType.equalsIgnoreCase(PgTypes.FLOAT8.name())) {
             return TypeDescription.createDouble();
-        } else if (databaseType.equalsIgnoreCase(PgTypes.INT4.name()) || databaseType.equalsIgnoreCase(PgTypes.NUMERIC.name()) || databaseType.equalsIgnoreCase(PgTypes.SERIAL.name())) {
+        } else if (databaseType.equalsIgnoreCase(PgTypes.INT4.name()) || databaseType.equalsIgnoreCase(PgTypes.SERIAL.name())) {
             return TypeDescription.createInt();
         } else if (databaseType.equalsIgnoreCase(PgTypes.BPCHAR.name())) {
             return TypeDescription.createString();
