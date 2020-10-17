@@ -13,7 +13,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
-    <orc.version>1.6.2</orc.version>
+    <orc.version>1.6.5</orc.version>
   </properties>
 
   <profiles>

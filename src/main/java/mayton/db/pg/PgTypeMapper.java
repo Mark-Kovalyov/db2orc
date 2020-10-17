@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.orc.TypeDescription;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.math.BigDecimal;
@@ -14,7 +15,6 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.Optional;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.commons.lang3.ArrayUtils.EMPTY_BYTE_ARRAY;
@@ -56,12 +56,23 @@ public class PgTypeMapper extends GenericTypeMapper {
         return res;
     }
 
+    //  Column |       Type       | Collation | Nullable |              Default              | Storage | Stats target | Description
+    //--------+------------------+-----------+----------+-----------------------------------+---------+--------------+-------------
+    // i4     | integer          |           |          |                                   | plain   |              |
+    // se     | integer          |           | not null | nextval('test5_se_seq'::regclass) | plain   |              |
+    // ss     | smallint         |           | not null | nextval('test5_ss_seq'::regclass) | plain   |              |
+    // bs     | bigint           |           | not null | nextval('test5_bs_seq'::regclass) | plain   |              |
+    // si     | smallint         |           |          |                                   | plain   |              |
+    // bi     | bigint           |           |          |                                   | plain   |              |
+    // i      | integer          |           |          |                                   | plain   |              |
+    // f8     | double precision |           |          |                                   | plain   |              |
+    // r      | real             |           |          |                                   | plain   |              |
     @Override
-    public @NotNull TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> dataTypeLength, Optional<Integer> dataTypeScale, boolean isNullable) {
+    public @NotNull TypeDescription toOrc(@NotNull String databaseType, @Nullable Integer dataTypeLength, @Nullable Integer dataTypeScale, boolean isNullable) {
         logger.trace(":: toOrc dt = {}, dtl = {}, dts = {}, isNul = {}",
                 databaseType,
-                dataTypeLength.isPresent() ? String.valueOf(dataTypeLength.get()) : "?",
-                dataTypeScale.isPresent() ? String.valueOf(dataTypeScale.get()) : "?",
+                dataTypeLength != null ? String.valueOf(dataTypeLength) : "?",
+                dataTypeScale != null ? String.valueOf(dataTypeScale) : "?",
                 isNullable);
 
         if (databaseType.equalsIgnoreCase(PgTypes.JSONB.name())) {
@@ -70,24 +81,38 @@ public class PgTypeMapper extends GenericTypeMapper {
             return typeDesc;
         } else if (databaseType.equalsIgnoreCase(PgTypes.NUMERIC.name())) {
             TypeDescription typeDesc = TypeDescription.createDecimal();
-            if (dataTypeLength.isPresent()) typeDesc = typeDesc.withPrecision(dataTypeLength.get());
-            if (dataTypeScale.isPresent()) typeDesc = typeDesc.withScale(dataTypeScale.get());
+            if (dataTypeLength != null) {
+                typeDesc = typeDesc.withPrecision(dataTypeLength);
+            }
+            if (dataTypeScale != null) {
+                typeDesc = typeDesc.withScale(dataTypeScale);
+            }
             return typeDesc;
         } else if (databaseType.equalsIgnoreCase(PgTypes.TEXT.name())) {
             return TypeDescription.createString();
         } else if (databaseType.equalsIgnoreCase(PgTypes.VARCHAR.name())) {
             // TODO: Investigate for maxLength limitations
             TypeDescription typeDesc = TypeDescription.createVarchar();
-            if (dataTypeLength.isPresent()) {
-                typeDesc = typeDesc.withMaxLength(dataTypeLength.get());
+            if (dataTypeLength != null) {
+                typeDesc = typeDesc.withMaxLength(dataTypeLength);
             }
             return typeDesc;
         } else if (databaseType.equalsIgnoreCase(PgTypes.FLOAT8.name())) {
             return TypeDescription.createDouble();
+        } else if (databaseType.equalsIgnoreCase(PgTypes.REAL.name()) || databaseType.equalsIgnoreCase(PgTypes.FLOAT4.name())) {
+            // TODO: Test range
+            return TypeDescription.createFloat();
         } else if (databaseType.equalsIgnoreCase(PgTypes.INT4.name()) || databaseType.equalsIgnoreCase(PgTypes.SERIAL.name())) {
             return TypeDescription.createInt();
+        } else if (databaseType.equalsIgnoreCase(PgTypes.INT2.name())) {
+            return TypeDescription.createShort();
         } else if (databaseType.equalsIgnoreCase(PgTypes.BPCHAR.name())) {
             return TypeDescription.createString();
+        } else if (databaseType.equalsIgnoreCase(PgTypes.BIGSERIAL.name()) ||
+                   databaseType.equalsIgnoreCase(PgTypes.INT8.name()) ||
+                   databaseType.equalsIgnoreCase(PgTypes.SERIAL8.name())) {
+            // TODO: Test range
+            return TypeDescription.createLong();
         } else if (databaseType.equalsIgnoreCase(PgTypes.POINT.name())) {
             // TODO: This is not a good idea to convert from point to string. Should be discussed
             return TypeDescription.createString();

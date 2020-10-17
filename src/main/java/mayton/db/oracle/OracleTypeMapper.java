@@ -4,12 +4,12 @@ import mayton.db.GenericTypeMapper;
 import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.orc.TypeDescription;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Optional;
 
 @ThreadSafe
 public class OracleTypeMapper extends GenericTypeMapper {
@@ -21,7 +21,7 @@ public class OracleTypeMapper extends GenericTypeMapper {
     }
 
     @Override
-    public @NotNull TypeDescription toOrc(@NotNull String databaseType, Optional<Integer> dataTypeLength, Optional<Integer> dataTypeScale, boolean isNullable) {
+    public @NotNull TypeDescription toOrc(@NotNull String databaseType, @Nullable Integer dataTypeLength, @Nullable Integer dataTypeScale, boolean isNullable) {
         // TODO:
         return TypeDescription.createString();
     }

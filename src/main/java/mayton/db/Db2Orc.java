@@ -163,8 +163,8 @@ public class Db2Orc extends GenericMainApplication {
                 // TODO: Pass nullable
                 TypeDescription typeDescription = genericTypeMapper.toOrc(
                         typeName,
-                        Optional.of(columnSize),
-                        Optional.of(scale),
+                        columnSize,
+                        scale,
                         true);
 
                 logger.info("typeDescription = {}", typeDescription);
@@ -187,8 +187,8 @@ public class Db2Orc extends GenericMainApplication {
                     // TODO: pass nullable
                     TypeDescription typeDescription = genericTypeMapper.toOrc(
                             typeName,
-                            Optional.of(precision),
-                            Optional.of(scale),
+                            precision,
+                            scale,
                             true);
 
                     logger.trace("[3.6] Column {} : typeName = {}, precision = {}, scale = {}",

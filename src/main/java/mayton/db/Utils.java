@@ -2,7 +2,6 @@ package mayton.db;
 
 import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.concurrent.ThreadSafe;
 import java.io.PrintStream;
 
 public class Utils {

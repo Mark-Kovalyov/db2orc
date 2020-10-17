@@ -2,8 +2,13 @@ package mayton.db.pg;
 
 public enum PgTypes {
     BPCHAR, TEXT, VARCHAR,
-    FLOAT8, REAL,
-    INT4, SERIAL, SMALLSERIAL, BIGSERIAL, SMALLINT, BIGINT, INTEGER,
+    // Floating point 8 bytes
+    FLOAT8,
+    // Floating point 4 bytes
+    REAL, FLOAT4,
+    // Integer
+    INT4, SERIAL, SMALLSERIAL, BIGSERIAL, SERIAL8, INT8, SMALLINT, BIGINT, INTEGER, INT2,
+    // Financial
     NUMERIC,  DECIMAL,
     TIMESTAMPTZ,
     POINT,
