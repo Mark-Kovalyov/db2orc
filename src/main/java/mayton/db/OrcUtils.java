@@ -30,8 +30,11 @@ public class OrcUtils {
         if (line.hasOption("orc.rowindexstride"))
             opts = opts.rowIndexStride(Integer.parseInt(line.getOptionValue("orc.rowindexstride")));
 
-        if (line.hasOption("orc.bloomcolumns"))
-            opts = opts.bloomFilterColumns(line.getOptionValue("orc.bloomcolumns"));
+        if (line.hasOption("orc.bloomcolumns")) {
+            String bloomColumns = line.getOptionValue("orc.bloomcolumns");
+            logger.trace("Detected bloomColumns = {}", bloomColumns);
+            opts = opts.bloomFilterColumns(bloomColumns);
+        }
 
         if (line.hasOption("orc.bloomfilterfpp"))
             opts = opts.bloomFilterFpp(Double.parseDouble(line.getOptionValue("orc.bloomfilterfpp")));

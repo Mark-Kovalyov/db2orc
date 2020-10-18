@@ -25,6 +25,7 @@ public class PgTypeMapper extends GenericTypeMapper {
     static Logger logger = LogManager.getLogger(PgTypeMapper.class);
 
     @Override
+    @NotNull
     public String fromOrc(@NotNull TypeDescription typeDescription) {
 
         String orcType = typeDescription.getCategory().getName();
@@ -129,8 +130,9 @@ public class PgTypeMapper extends GenericTypeMapper {
         int columnCount = rsmd.getColumnCount();
         for (int i = 0; i < columnCount; i++) {
             String columnClassName = rsmd.getColumnClassName(i + 1);
-            String columnTypeName = rsmd.getColumnTypeName(i + 1);
-            Object sqlFieldValue = resultSet.getObject(i + 1);
+            String columnTypeName  = rsmd.getColumnTypeName(i + 1);
+            int isNullable         = rsmd.isNullable(i + 1);
+            Object sqlFieldValue   = resultSet.getObject(i + 1);
             if (sqlFieldValue != null) {
                 // TODO: PostgreSQL specific mapping
                 if (columnTypeName.equals(PgTypes.BPCHAR.name().toLowerCase()) ||

@@ -1,6 +1,7 @@
 package mayton.db;
 
-import java.sql.Connection;
+import org.jetbrains.annotations.NotNull;
+
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -9,9 +10,8 @@ public class SQLUtils {
 
     private SQLUtils() {}
 
-
-
-    public static ResultSet getColumns(DatabaseMetaData metadata, String tableName) throws SQLException {
+    @NotNull
+    public static ResultSet getColumns(@NotNull DatabaseMetaData metadata, @NotNull String tableName) throws SQLException {
         return metadata.getColumns(null, null, tableName, null);
     }
 }

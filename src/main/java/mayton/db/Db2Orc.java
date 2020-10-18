@@ -12,7 +12,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.sql.*;
-import java.util.Optional;
 
 @SuppressWarnings({"java:S2629","java:S1192","java:S112","java:S1135"})
 public class Db2Orc extends GenericMainApplication {
@@ -94,7 +93,7 @@ public class Db2Orc extends GenericMainApplication {
         // TODO: Consider BCEL/Asm to implement table-per-assembly jvm code
         VectorizedRowBatch batch = schema.createRowBatch(orcBatchSize);
         connection.setAutoCommit(false);
-
+        int allRows = 0;
         try (Statement statement = connection.createStatement()) {
             logger.info("execute query : {}", query);
             // TODO: Parametrize
@@ -108,6 +107,7 @@ public class Db2Orc extends GenericMainApplication {
                     genericTypeMapper.toOrcVectorized(batch, rows, resultSet);
                     batch.size++;
                     rows++;
+                    allRows++;
                     if (batch.size >= orcBatchSize) {
                         logger.trace("Add batch # {}", batches);
                         writer.addRowBatch(batch);
@@ -117,12 +117,12 @@ public class Db2Orc extends GenericMainApplication {
                     }
                 }
                 if (batch.size > 0) {
-                    logger.trace("Add batch # {}", batches);
+                    logger.trace("Add final batch # {}", batches);
                     writer.addRowBatch(batch);
                     batches++;
                     batch.reset();
                 }
-                logger.info("Successfully write {} rows and {} batches", rows, batches);
+                logger.info("Successfully write {} rows and {} batches", allRows, batches);
             }
         }
     }
@@ -208,8 +208,8 @@ public class Db2Orc extends GenericMainApplication {
 
     public void processRows(@NotNull Connection connection, @NotNull TypeDescription schema, @NotNull CommandLine line) throws IOException {
 
-        String orcFilePath = line.getOptionValue("orcfile");
-        logger.info("[4] Export ORC file = {}", orcFilePath);
+        String orcfile = line.getOptionValue("orcfile");
+        logger.info("[4] Export ORC file = {}", orcfile);
         Configuration conf = new Configuration();
         conf.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
         conf.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
@@ -219,7 +219,7 @@ public class Db2Orc extends GenericMainApplication {
         logger.info("[5] currentDirPath = {}", currentDirPath);
         org.apache.hadoop.fs.FileSystem currentDirPathFileSystem = currentDirPath.getFileSystem(conf);
         logger.info("[6] fs.canonicalServName = {}", currentDirPathFileSystem.getCanonicalServiceName());
-        currentDirPathFileSystem.delete(new Path(orcFilePath), false);
+        currentDirPathFileSystem.delete(new Path(orcfile), false);
         logger.info("[6.1] create Orc-Writer with schema");
 
         int batchSize = 1000;
@@ -234,7 +234,7 @@ public class Db2Orc extends GenericMainApplication {
         String selectExpr = line.getOptionValue("selectexpr");
         ITypeMapper genericTypeMapper = MapperManager.instance.detect(line.getOptionValue("url"));
 
-        try (Writer writer = OrcUtils.createWriter(currentDirPathFileSystem, orcFilePath, schema, line)) {
+        try (Writer writer = OrcUtils.createWriter(currentDirPathFileSystem, orcfile, schema, line)) {
             if (selectExpr != null) {
                 processWithWriter(writer, schema, connection, selectExpr, batchSize, fetchSize, genericTypeMapper);
             } else if (tableName != null) {
@@ -252,13 +252,13 @@ public class Db2Orc extends GenericMainApplication {
 
         logger.info("[1] Start process");
 
-        String url = line.getOptionValue("u");
+        String url = line.getOptionValue("url");
         logger.trace("url = {}", url);
 
         try (Connection connection = DriverManager.getConnection(
                 url,
-                line.getOptionValue("l"),
-                line.getOptionValue("p"))) {
+                line.getOptionValue("login"),
+                line.getOptionValue("password"))) {
 
             logger.info("[2] Read metadata from DB");
 

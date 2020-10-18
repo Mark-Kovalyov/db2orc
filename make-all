@@ -1,6 +1,6 @@
 #!/bin/bash -v
 
-mvn clean test
+#mvn clean test
 
 echo "Error code = $?"
 

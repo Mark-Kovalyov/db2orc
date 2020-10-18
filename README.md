@@ -65,10 +65,10 @@ java -Xmx2G \
 
 ## Compression statistics for test samples (PostgreSQL)
 
-|Table          |Rows      |Size (PG table)|Size (pg_dump/c)|Size (orc) |Compression ratio (%)|
-|---------------|----------|---------------|----------------|-----------|---------------------|
-|organization   | 6 300 010|        1407 MB|         290 MB |     275 MB| 19.5 %              |
-|person         |14 383 339|        3720 MB|         534 MB |     561 MB| 15 %                | 
+|Table          |Rows      |Size (PG table)|Size (pg_dump/c)|Size (orc/ZLIB)|Compression ratio (%)|
+|---------------|----------|---------------|----------------|---------------|---------------------|
+|organization   | 6 300 010|        1407 MB|         290 MB |         275 MB| 19.5 %              |
+|person         |14 383 339|        3720 MB|         534 MB |         561 MB| 15 %                | 
 
 ```
 $ pg_dump -d $dbname --table=organization --file=organization-c.dump --format=c
@@ -77,6 +77,15 @@ $ pg_dump -d $dbname --table=person --file=person-с.dump --format=c
 
 
 ## Other Utils:
+
+From https://github.com/apache/orc 
+
+* orc-contents
+* orc-memory
+* orc-metadata
+* orc-scan
+* orc-statistics
+* orc-tools
 
 ## Test data
 
