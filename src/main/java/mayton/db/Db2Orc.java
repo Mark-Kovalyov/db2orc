@@ -124,6 +124,9 @@ public class Db2Orc extends GenericMainApplication {
                 }
                 logger.info("Successfully write {} rows and {} batches", allRows, batches);
             }
+            catch (SQLException ex) {
+                logger.error("SQLException during processWithWriter", ex);
+            }
         }
     }
 
@@ -141,11 +144,11 @@ public class Db2Orc extends GenericMainApplication {
             logger.trace("[3.2] Process type mapper");
             int cnt = 0;
             while (resultSetColumns.next()) {
-                if (logger.isDebugEnabled()) {
+                /*if (logger.isDebugEnabled()) {
                     for (int i = 1; i <= 23; i++) {
                         logger.trace("[3.3] :: {}, column# = {}, object = {}, type = {}", cnt, i, resultSetColumns.getObject(i), resultSetColumns.getType());
                     }
-                }
+                }*/
                 cnt++;
                 String columnName = resultSetColumns.getString("COLUMN_NAME");
                 int dataType      = resultSetColumns.getInt("DATA_TYPE");
@@ -219,7 +222,9 @@ public class Db2Orc extends GenericMainApplication {
         logger.info("[5] currentDirPath = {}", currentDirPath);
         org.apache.hadoop.fs.FileSystem currentDirPathFileSystem = currentDirPath.getFileSystem(conf);
         logger.info("[6] fs.canonicalServName = {}", currentDirPathFileSystem.getCanonicalServiceName());
-        currentDirPathFileSystem.delete(new Path(orcfile), false);
+        logger.trace("Delete old file {}", orcfile);
+        boolean deleteResult = currentDirPathFileSystem.delete(new Path(orcfile), false);
+        logger.trace("Deleted res = {}", deleteResult);
         logger.info("[6.1] create Orc-Writer with schema");
 
         int batchSize = 1000;
