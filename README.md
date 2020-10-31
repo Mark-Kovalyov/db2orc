@@ -1,6 +1,17 @@
 # db2orc + orc2db
 This is an Education project to analyze apache orc abilities.
 
+## DBMS support
+
+|Dbms     |Supported|
+|---------|---------|
+|Postgres | 95%     |
+|Oracle   | TBD     |
+|MS-SQL   | TBD     |
+|MySQL    | TBD     |
+|MariaDB  | TBD     |
+|DB2      | Licence?| 
+
 ## Usage
 
 Export from database to orc:
@@ -76,7 +87,7 @@ $ pg_dump -d $dbname --table=person --file=person-с.dump --format=c
 ```
 
 
-## Other Utils:
+## Other Utils been used:
 
 From https://github.com/apache/orc 
 
@@ -124,6 +135,6 @@ Usage: orc-metadata [-h] [--help] [-r] [--raw] [-v] [--verbose] <filename>
 - orc-scan
 - orc-statistics
 
-### Java tools:
+### Apache ORC java tools:
 
 - orc-tools-1.6.0-SNAPSHOT-uber.jar

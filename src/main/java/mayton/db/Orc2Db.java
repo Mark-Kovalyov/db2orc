@@ -72,10 +72,6 @@ public class Orc2Db extends GenericMainApplication {
 
     public void go(String[] args) throws IOException, ParseException, ClassNotFoundException, InstantiationException, IllegalAccessException, InvocationTargetException {
         String url = "";
-        String login = "";
-        String pwd = "";
-        String orcFile = "";
-        String rootTableName = "";
         Properties properties = new Properties();
         if (DEVMODE) {
             properties.load(new FileInputStream("orc2db.properties"));
