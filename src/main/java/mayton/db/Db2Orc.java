@@ -1,5 +1,6 @@
 package mayton.db;
 
+import mayton.lib.SofarTracker;
 import org.apache.commons.cli.*;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -87,9 +88,10 @@ public class Db2Orc extends GenericMainApplication {
      *
      */
     public void processWithWriter(@NotNull Writer writer, @NotNull TypeDescription schema, @NotNull Connection connection,
-                                  @NotNull String query, int orcBatchSize, int jdbcFetchSize, @NotNull ITypeMapper genericTypeMapper) throws IOException, SQLException {
+                                  @NotNull String query, int orcBatchSize, int jdbcFetchSize,
+                                  @NotNull ITypeMapper genericTypeMapper, long estimatedRows) throws IOException, SQLException {
         logger.traceEntry("processWithWriter orcBatchSize = {}, jdbcFetchSize = {}", orcBatchSize, jdbcFetchSize);
-
+        SofarTracker sofarTracker = SofarTracker.createUnitLikeTracker("row", estimatedRows);
         // TODO: Consider BCEL/Asm to implement table-per-assembly jvm code
         VectorizedRowBatch batch = schema.createRowBatch(orcBatchSize);
         connection.setAutoCommit(false);
@@ -108,8 +110,12 @@ public class Db2Orc extends GenericMainApplication {
                     batch.size++;
                     rows++;
                     allRows++;
+                    sofarTracker.update(allRows);
                     if (batch.size >= orcBatchSize) {
-                        logger.trace("Add batch # {}", batches);
+                        //logger.trace("Add batch # {}", batches);
+                        if (batches % 100 == 0) {
+                            logger.trace(sofarTracker.toString());
+                        }
                         writer.addRowBatch(batch);
                         batches++;
                         batch.reset();
@@ -117,12 +123,15 @@ public class Db2Orc extends GenericMainApplication {
                     }
                 }
                 if (batch.size > 0) {
-                    logger.trace("Add final batch # {}", batches);
+                    //logger.trace("Add final batch # {}", batches);
+                    logger.trace(sofarTracker.toString());
                     writer.addRowBatch(batch);
                     batches++;
                     batch.reset();
                 }
                 logger.info("Successfully write {} rows and {} batches", allRows, batches);
+                sofarTracker.finish();
+                logger.trace(sofarTracker.toString());
             }
             catch (SQLException ex) {
                 logger.error("SQLException during processWithWriter", ex);
@@ -209,23 +218,33 @@ public class Db2Orc extends GenericMainApplication {
         return schema;
     }
 
-    public void processRows(@NotNull Connection connection, @NotNull TypeDescription schema, @NotNull CommandLine line) throws IOException {
+    public long estimateRows(@NotNull Connection connection, @NotNull String selectCountExpression) throws SQLException {
+        long resultRows = -1;
+        try(Statement statement = connection.createStatement()) {
+            ResultSet result = statement.executeQuery(selectCountExpression);
+            result.next();
+            resultRows = result.getLong(1);
+        }
+        logger.info("Estimated rows = {}", resultRows);
+        return resultRows;
+    }
 
+    public void processRows(@NotNull Connection connection, @NotNull TypeDescription schema, @NotNull CommandLine line) throws IOException {
         String orcfile = line.getOptionValue("orcfile");
-        logger.info("[4] Export ORC file = {}", orcfile);
+        logger.info("Export ORC file = {}", orcfile);
         Configuration conf = new Configuration();
         conf.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
         conf.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
         String userDir = System.getProperty("user.dir");
-        logger.info("[4.3] User dir = {}", userDir);
+        logger.info("User dir = {}", userDir);
         org.apache.hadoop.fs.Path currentDirPath = new org.apache.hadoop.fs.Path(userDir);
-        logger.info("[5] currentDirPath = {}", currentDirPath);
+        logger.info("currentDirPath = {}", currentDirPath);
         org.apache.hadoop.fs.FileSystem currentDirPathFileSystem = currentDirPath.getFileSystem(conf);
-        logger.info("[6] fs.canonicalServName = {}", currentDirPathFileSystem.getCanonicalServiceName());
+        logger.info("fs.canonicalServName = {}", currentDirPathFileSystem.getCanonicalServiceName());
         logger.trace("Delete old file {}", orcfile);
         boolean deleteResult = currentDirPathFileSystem.delete(new Path(orcfile), false);
         logger.trace("Deleted res = {}", deleteResult);
-        logger.info("[6.1] create Orc-Writer with schema");
+        logger.info("create Orc-Writer with schema");
 
         int batchSize = 1000;
         if (line.hasOption("batchsize")) {
@@ -239,23 +258,26 @@ public class Db2Orc extends GenericMainApplication {
         String selectExpr = line.getOptionValue("selectexpr");
         ITypeMapper genericTypeMapper = MapperManager.instance.detect(line.getOptionValue("url"));
 
+        long estimatedRows = -1;
         try (Writer writer = OrcUtils.createWriter(currentDirPathFileSystem, orcfile, schema, line)) {
             if (selectExpr != null) {
-                processWithWriter(writer, schema, connection, selectExpr, batchSize, fetchSize, genericTypeMapper);
+                estimatedRows = estimateRows(connection, "SELECT COUNT(*) FROM (" + selectExpr + ") AS TEMP");
+                processWithWriter(writer, schema, connection, selectExpr, batchSize, fetchSize, genericTypeMapper, estimatedRows);
             } else if (tableName != null) {
-                processWithWriter(writer, schema, connection, "SELECT * FROM " + tableName, batchSize, fetchSize, genericTypeMapper);
+                estimatedRows = estimateRows(connection, "SELECT COUNT(*) FROM " + tableName);
+                processWithWriter(writer, schema, connection, "SELECT * FROM " + tableName, batchSize, fetchSize, genericTypeMapper, estimatedRows);
             } else {
                 throw new IllegalArgumentException("Undefined table or SQL-expression for export!");
             }
         } catch (IOException | SQLException ex) {
             logger.error("IOException : ", ex);
         }
-        logger.info("[6.2] Orc-Writer closed");
+        logger.info("Orc-Writer closed");
     }
 
     public void process(@NotNull CommandLine line) throws SQLException, IOException {
 
-        logger.info("[1] Start process");
+        logger.info("Start process");
 
         String url = line.getOptionValue("url");
         logger.trace("url = {}", url);
@@ -265,7 +287,7 @@ public class Db2Orc extends GenericMainApplication {
                 line.getOptionValue("login"),
                 line.getOptionValue("password"))) {
 
-            logger.info("[2] Read metadata from DB");
+            logger.info("Read metadata from DB");
 
             TypeDescription schema = prepareTypeDescription(connection, line);
 
@@ -274,7 +296,7 @@ public class Db2Orc extends GenericMainApplication {
         } catch (SQLException ex) {
             logger.error("SQLException : ", ex);
         }
-        logger.info("[7] Finish!");
+        logger.info("Finish!");
     }
 
     public void process(String[] args) throws SQLException, ParseException, IOException {
