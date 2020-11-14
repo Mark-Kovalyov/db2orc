@@ -1,0 +1,10 @@
+#!/bin/bash -v
+
+if [ -f "db2orc.pid" ]; then
+  cdate=$(date +"%Y-%m-%d")
+  PID=$(cat db2orc.pid)
+  jcmd $PID JFR.start duration=600s filename=jfr/db2orc-$cdate.jfr
+else
+  echo "Unable to find db2orc.pid"
+fi
+

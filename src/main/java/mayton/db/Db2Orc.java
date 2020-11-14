@@ -11,7 +11,7 @@ import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
+import java.io.*;
 import java.sql.*;
 
 @SuppressWarnings({"java:S2629","java:S1192","java:S112","java:S1135"})
@@ -276,8 +276,16 @@ public class Db2Orc extends GenericMainApplication {
     }
 
     public void process(@NotNull CommandLine line) throws SQLException, IOException {
-
         logger.info("Start process");
+
+        long pid = ProcessHandle.current().pid();
+        File pidFile = new File("db2orc.pid");
+        try (PrintWriter pw = new PrintWriter(new FileWriter(pidFile))) {
+            pw.println(pid);
+            pw.flush();
+        } catch (Exception ex) {
+            logger.warn("Unable to write pid file", ex);
+        }
 
         String url = line.getOptionValue("url");
         logger.trace("url = {}", url);
@@ -295,12 +303,13 @@ public class Db2Orc extends GenericMainApplication {
 
         } catch (SQLException ex) {
             logger.error("SQLException : ", ex);
+        } finally {
+            pidFile.delete();
         }
         logger.info("Finish!");
     }
 
     public void process(String[] args) throws SQLException, ParseException, IOException {
-
         CommandLineParser parser = new DefaultParser();
         Options options = createOptions();
         if (args.length == 0) {

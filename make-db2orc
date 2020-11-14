@@ -3,6 +3,3 @@
 mvn clean package -Dtargetbinary=db2orc -DskipTests
 cp -v target/db2orc-*.jar db2orc.jar
 
-mvn clean package -Dtargetbinary=orc2db -DskipTests
-cp -v target/db2orc-*.jar orc2db.jar
-

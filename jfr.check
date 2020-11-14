@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [ -f "db2orc.pid" ]; then
+  PID=$(cat db2orc.pid)
+  jcmd $PID JFR.check
+else
+  echo "Unable to find db2orc.pid"
+fi
