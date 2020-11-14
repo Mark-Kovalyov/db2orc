@@ -1,5 +1,8 @@
 package mayton.db;
 
+import mayton.db.jfr.AddRowBatchEvent;
+import mayton.db.jfr.JdbcFetchEvent;
+import mayton.db.jfr.ToOrcVectorizedEvent;
 import mayton.lib.SofarTracker;
 import org.apache.commons.cli.*;
 import org.apache.hadoop.conf.Configuration;
@@ -98,34 +101,53 @@ public class Db2Orc extends GenericMainApplication {
         int allRows = 0;
         try (Statement statement = connection.createStatement()) {
             logger.info("execute query : {}", query);
-            // TODO: Parametrize
             statement.setFetchSize(jdbcFetchSize);
             statement.executeQuery(query);
-            // ResultSet.TYPE_FORWARD_ONLY
+            // TODO: Bencmark with : { ResultSet.TYPE_FORWARD_ONLY , .... }
             try(ResultSet resultSet = statement.getResultSet()) {
                 int rows = 0;
                 long batches = 0;
-                while (resultSet.next()) {
+                while (true) {
+                    JdbcFetchEvent jdbcFetchEvent = new JdbcFetchEvent();
+                    jdbcFetchEvent.begin();
+                    boolean fetchResult = resultSet.next();
+                    jdbcFetchEvent.end();
+                    jdbcFetchEvent.commit();
+                    if (!fetchResult) {
+                        break;
+                    }
+                    ToOrcVectorizedEvent toOrcVectorizedEvent = new ToOrcVectorizedEvent();
+                    toOrcVectorizedEvent.begin();
                     genericTypeMapper.toOrcVectorized(batch, rows, resultSet);
+                    toOrcVectorizedEvent.end();
+                    toOrcVectorizedEvent.commit();
                     batch.size++;
                     rows++;
                     allRows++;
                     sofarTracker.update(allRows);
                     if (batch.size >= orcBatchSize) {
-                        //logger.trace("Add batch # {}", batches);
                         if (batches % 100 == 0) {
                             logger.trace(sofarTracker.toString());
                         }
+                        AddRowBatchEvent addRowBatchEvent = new AddRowBatchEvent();
+                        addRowBatchEvent.batchNumber = batches;
+                        addRowBatchEvent.begin();
                         writer.addRowBatch(batch);
+                        addRowBatchEvent.end();
+                        addRowBatchEvent.commit();
                         batches++;
                         batch.reset();
                         rows=0;
                     }
                 }
                 if (batch.size > 0) {
-                    //logger.trace("Add final batch # {}", batches);
                     logger.trace(sofarTracker.toString());
+                    AddRowBatchEvent addRowBatchEvent = new AddRowBatchEvent();
+                    addRowBatchEvent.batchNumber = batches;
+                    addRowBatchEvent.begin();
                     writer.addRowBatch(batch);
+                    addRowBatchEvent.end();
+                    addRowBatchEvent.commit();
                     batches++;
                     batch.reset();
                 }

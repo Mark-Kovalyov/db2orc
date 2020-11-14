@@ -1,4 +1,4 @@
-#!/bin/bash -v
+#!/bin/bash
 
 if [ -f "db2orc.pid" ]; then
   PID=$(cat db2orc.pid)

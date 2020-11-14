@@ -1,7 +1,6 @@
-#!/bin/bash -v
+#!/bin/bash
 
 if [ -f "db2orc.pid" ]; then
-  cdate=$(date +"%Y-%m-%d")
   PID=$(cat db2orc.pid)
   # TODO : What is the difference between name and filename?
   jcmd $PID JFR.dump name=1

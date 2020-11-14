@@ -1,9 +1,9 @@
-#!/bin/bash -v
+#!/bin/bash
 
 if [ -f "db2orc.pid" ]; then
-  cdate=$(date +"%Y-%m-%d")
+  cdate=$(date +"%Y-%m-%d-%H-%M-%S")
   PID=$(cat db2orc.pid)
-  jcmd $PID JFR.start duration=600s filename=jfr/db2orc-$cdate.jfr
+  jcmd $PID JFR.start duration=600s filename=jfr/db2orc-$cdate.jfr dumponexit=true
 else
   echo "Unable to find db2orc.pid"
 fi
