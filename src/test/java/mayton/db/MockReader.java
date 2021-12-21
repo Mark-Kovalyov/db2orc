@@ -18,6 +18,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 public class MockReader implements Reader {
+
     @Override
     public long getNumberOfRows() {
         return 0;
@@ -29,12 +30,12 @@ public class MockReader implements Reader {
     }
 
     @Override
-    public long getRawDataSizeOfColumns(List<String> colNames) {
+    public long getRawDataSizeOfColumns(List<String> list) {
         return 0;
     }
 
     @Override
-    public long getRawDataSizeFromColIndices(List<Integer> colIds) {
+    public long getRawDataSizeFromColIndices(List<Integer> list) {
         return 0;
     }
 
@@ -44,12 +45,12 @@ public class MockReader implements Reader {
     }
 
     @Override
-    public ByteBuffer getMetadataValue(String key) {
+    public ByteBuffer getMetadataValue(String s) {
         return null;
     }
 
     @Override
-    public boolean hasMetadataValue(String key) {
+    public boolean hasMetadataValue(String s) {
         return false;
     }
 
@@ -104,6 +105,11 @@ public class MockReader implements Reader {
     }
 
     @Override
+    public String getSoftwareVersion() {
+        return null;
+    }
+
+    @Override
     public OrcProto.FileTail getFileTail() {
         return null;
     }
@@ -124,7 +130,7 @@ public class MockReader implements Reader {
     }
 
     @Override
-    public List<StripeStatistics> getVariantStripeStatistics(EncryptionVariant variant) throws IOException {
+    public List<StripeStatistics> getVariantStripeStatistics(EncryptionVariant encryptionVariant) throws IOException {
         return null;
     }
 
@@ -164,7 +170,7 @@ public class MockReader implements Reader {
     }
 
     @Override
-    public List<StripeStatistics> getStripeStatistics(boolean[] include) throws IOException {
+    public List<StripeStatistics> getStripeStatistics(boolean[] booleans) throws IOException {
         return null;
     }
 

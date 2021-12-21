@@ -126,7 +126,7 @@ public class Db2Orc extends GenericMainApplication {
                     allRows++;
                     sofarTracker.update(allRows);
                     if (batch.size >= orcBatchSize) {
-                        if (batches % 100 == 0) {
+                        if (batches % 200 == 0) {
                             logger.trace(sofarTracker.toString());
                         }
                         AddRowBatchEvent addRowBatchEvent = new AddRowBatchEvent();

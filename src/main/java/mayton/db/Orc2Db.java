@@ -57,7 +57,6 @@ public class Orc2Db extends GenericMainApplication {
         for (int i = 0; i < td.size(); i++) {
             sql.append(StringUtils.replace(name.get(i).toLowerCase(), " ", "_"));
             sql.append(" ");
-            String orcType = td.get(i).getCategory().getName();
             sql.append(genericTypeMapper.fromOrc(td.get(i)));
             if (i != td.size() - 1) {
                 sql.append(",\n");

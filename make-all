@@ -1,5 +1,7 @@
 #!/bin/bash -v
 
+export JAVA_HOME=/jdk/11
+
 mvn clean package -Dtargetbinary=db2orc -DskipTests
 cp -v target/db2orc-*.jar db2orc.jar
 

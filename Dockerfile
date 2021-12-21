@@ -1,5 +1,5 @@
-FROM ubuntu:18.04
-RUN apt install openjdk-11-jdk-headless
+FROM ubuntu:20.04
+RUN apt install openjdk-17-jdk-headless
 COPY db2orc.jar        /opt/db2orc/
 COPY orc2db.jar        /opt/db2orc/
 COPY db2orc.properties /opt/db2orc/
