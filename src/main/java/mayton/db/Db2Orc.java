@@ -10,6 +10,10 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.vector.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
+import org.apache.logging.log4j.message.Message;
+import org.apache.logging.log4j.util.MessageSupplier;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
 import org.jetbrains.annotations.NotNull;
@@ -19,6 +23,10 @@ import java.sql.*;
 
 @SuppressWarnings({"java:S2629","java:S1192","java:S112","java:S1135"})
 public class Db2Orc extends GenericMainApplication {
+
+    //private static final Marker SECURED = MarkerFactory.getMarker("SECURED");
+
+    private static final Marker SECURED = MarkerManager.getMarker("SECURED");
 
     public static Logger logger = LogManager.getLogger(Db2Orc.class);
 
@@ -310,12 +318,11 @@ public class Db2Orc extends GenericMainApplication {
         }
 
         String url = line.getOptionValue("url");
-        logger.trace("url = {}", url);
+        String login = line.getOptionValue("login");
+        String password = line.getOptionValue("password");
+        logger.info(SECURED, "Connecting to database with url = {}, login = {}, password = {}", url, login, password);
 
-        try (Connection connection = DriverManager.getConnection(
-                url,
-                line.getOptionValue("login"),
-                line.getOptionValue("password"))) {
+        try (Connection connection = DriverManager.getConnection(url, login, password)) {
 
             logger.info("Read metadata from DB");
 

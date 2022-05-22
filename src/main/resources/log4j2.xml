@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
     <Appenders>
+
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="%highlight{%d{yyyy-MM-dd HH:mm:ss} [%-5p] %-3tid : %c{1} :: %m%n}{FATAL=Bright red blink, ERROR=Bright red, WARN=Bright yellow, INFO=Bright green, DEBUG=Bright cyan, TRACE=Bright cyan}"/>
         </Console>
 
         <File name="MainFileAppender" fileName="./logs/db2orc.log" append="false">
+            <Filters>
+                <Filter type="MarkerFilter" marker="SECURED" onMatch="DENY" onMismatch="NEUTRAL"/>
+            </Filters>
             <PatternLayout>
                 <Pattern>%d{yyyy-MM-dd HH:mm:ss} [%-5p] %-3tid : %c %m%n</Pattern>
             </PatternLayout>
