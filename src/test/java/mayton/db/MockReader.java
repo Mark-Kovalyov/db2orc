@@ -104,6 +104,11 @@ public class MockReader implements Reader {
     }
 
     @Override
+    public String getSoftwareVersion() {
+        return null;
+    }
+
+    @Override
     public OrcProto.FileTail getFileTail() {
         return null;
     }
